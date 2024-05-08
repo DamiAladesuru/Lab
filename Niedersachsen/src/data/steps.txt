@@ -1,0 +1,25 @@
+
+import packages
+#######################################
+load main data -> line 45
+*get basic information like attributes, crs, head, etc. -> line 47 - 60
+preprocess data:
+    create ne name for attributes with varying names across year e.g., year, kulturcode
+    delete unneeded columns
+    change year to datetime and int
+    *see data info and head again
+add all years' data into one geodataframe
+create additonal field-level data: area, peri, shape index, fractal dimension
+*see data info and head again. save data to shp so you can do visual inspeaction in another software like ArcGIS
+run descriptives for field level
+########################################
+load grid
+reproject grid to 25382
+left join grid to all_years data
+identify and delete duplicates
+save interim data as pickle
+
+
+Move to desc_anal script
+load pkl file
+run field level analysis. If all worked as should in the process of joining grid to data, the outcome of this landscape level analaysis should be same as the one done in the load_maindata script

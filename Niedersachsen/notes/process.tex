@@ -1,0 +1,261 @@
+\documentclass{article}
+\title{Notes about research process}
+\author{Damilola Aladesuru}
+\date{Jan 2024}
+\usepackage{amsmath}
+
+
+\begin{document}
+\maketitle
+
+% \pagenumbering{roman}
+% \tableofcontents
+% \newpage
+\pagenumbering{arabic}
+
+1188.55 - (350.11+815.52)
+% \section{Introduction}
+% \label{sec1}
+% This is the introduction.
+
+
+\section{Scientific Model}
+
+
+We assume that the decision to grow a specific crop, $crop_{i,t}=\{0,1\}$, 
+on field $i$ in year $t$ is a Bernoulli distribution governed by a 
+probability $P(crop_{i,t})$:
+\begin{equation}
+    crop_{i,t} \sim Bernoulli( P(crop_{i,t}))
+\end{equation}
+
+
+We  assume that the probability of a crop, $P(crop_{i,t})$, is determined by 
+\begin{equation}  
+    P(crop_{i,t}) = f(\mathbf{m}_i,\tilde{\mathbf{m}}_i, \mathbf{w}_i,\tilde{\mathbf{w}}_i,Red_i,Treat_{Red_i,t} )
+\end{equation}
+with $f(.)$ beeing a link function that maps inputs to a probability.
+Further, we assume that the probability of a crop, $P(crop_{i,t})$ 
+is determined by individual field characteristics, regional 
+characteristics, and year specific effects. 
+For individual field characteristics and regional characteristics we separate each of them in 
+observed and latent (i.e. unobserved) characteristics. Observed regional characteristics, 
+for example the livestock density in a region, are denoted as a vector $\mathbf{m}_i$, 
+while latent characteristics are given by $\tilde{\mathbf{m}}_i$. Similarly, 
+observed individual field characteristics, for example the soil type, 
+are denoted as $\mathbf{w}_i$, while latent characteristics are given 
+by $\tilde{\mathbf{w}}_i$.
+
+Additionally we assume that the 
+crop choice is determined by the red areas policy applying to this field in the respective year.
+We assume that the red area status, $Red_i$, of a field is determined by the (latent and observed)
+field and regional characteristics. This status specifies which red area regulation applies to the 
+field $i$:
+\begin{equation}  
+    Red_{i} = r(\mathbf{m}_i,\mathbf{w}_i)
+\end{equation}
+Here $r(.)$ is a deterministic function that determines the status of an area
+based procedure defined in the regulation (see section ...). 
+Whether this policy regulation that come with a certain status are binding 
+in a specific year is denoted by $Treat_{Red_i,t}=\{0,1\}$. This means that
+we allow that red area status is endogenous to field and regional characteristics, but which 
+red area fertilization regulations apply (conditional on red area status) is exogenous 
+only depending on the year. 
+We use this fact for identification of the treatment effect of the red area policy. 
+
+\par
+
+In order to answer our research question and to explore the stated hypothesis 
+we are interested in the difference in probability of crop choice
+depending on whether policy regulation apply, i.e. depending on $Treat$:
+
+\begin{equation} 
+\begin{aligned}
+    \Delta P &= P(crop_{i,t}|Treat=1)-P(crop_{i,t}|Treat=0) \\
+    &= P(crop_{i,t}(1))-P(crop_{i,t}(0))
+\end{aligned}
+\end{equation}
+
+
+\section{Statistical Model (DGP)}
+
+In order to transform the scientific model into a statistical model, i.e. a 
+DGP that allows us to generate synthetic data from, we need to
+make additional functional form assumptions for (2) and (3). For (2) we 
+assume that the link function is a logistic function, 
+\begin{equation}  
+    f(L_{i,t})= logit^{-1}(L_{i,t}) = \frac{1}{1 + e^{-L_{i,t}}}. 
+\end{equation}
+$L_{i,t}$ are logit values for which we assume that they are linear combination 
+of the inputs: 
+% \begin{equation}  
+%     L_{i,t} = \mu_{i} + \tilde{\mathbf{m}}_i \tilde{\mathbf{\beta}} + \gamma_{D[i],t} + \mathbf{m}_i \mathbf{\beta} + \tilde{\mathbf{w}}_i \tilde{\mathbf{\alpha}} + \mathbf{w}_i \mathbf{\alpha} + \delta_{Red[i]} + \theta_{Red[i],t} Treat_{Red[i],t}
+% \end{equation}
+% \begin{equation}
+% \begin{aligned}      
+%     L_{i,t} &= \mu_{i,t} + \delta_{D[i],Red[i]} + \theta_{D[i],Red[i],t} Treat_{Red[i],t} \\
+%     \mu_{i,t} &\sim \mathcal{N}(\overline{\mu}_{i,t},\sigma_{\mu}) \\
+%     \overline{\mu}_{i,t} &= \gamma_{D[i],t} + \tilde{\mathbf{m}}_i \tilde{\mathbf{\beta}} +  \mathbf{m}_i \mathbf{\beta} + \tilde{\mathbf{w}}_i \tilde{\mathbf{\alpha}} + \mathbf{w}_i \mathbf{\alpha} 
+% \end{aligned}
+% \end{equation}
+\begin{equation}
+\begin{aligned}      
+    L_{i,t} &= \mu_{i,t} + \tau_t + \omega_{D[i],Red[i]} + \theta_{i,Red[i],t} Treat_{Red[i],t} \\
+    \mu_{i,t} &\sim \mathcal{N}(\overline{\mu}_{i},\sigma_{\mu}) \\
+    \overline{\mu}_{i} &= \nu_i + \tilde{\mathbf{m}}_i \tilde{\boldsymbol{\beta}} +  \mathbf{m}_i \boldsymbol{\beta}  + \tilde{\mathbf{w}}_{D[i]} \tilde{\boldsymbol{\alpha}} + \mathbf{w}_{D[i]} \boldsymbol{\alpha}\\
+    \omega_{d,r} &\sim \mathcal{N}(\overline{\omega}_{d,r},\sigma_{\omega}) \\
+    \overline{\omega}_{d,r} &= \tilde{\mathbf{w}}_d \tilde{\boldsymbol{\eta}}_r + \mathbf{w}_d \boldsymbol{\eta}_r \\
+    % \theta_{d,r,t} &\sim \mathcal{N}(\overline{\theta}_{d,r},\sigma_{\theta}) \\
+    % \overline{\theta}_{d,r} &= \tilde{\mathbf{w}}_d \tilde{\boldsymbol{\delta}}_r + \mathbf{w}_d \boldsymbol{\delta}_r +\tilde{\mathbf{m}}_d \tilde{\boldsymbol{\phi}}_r + \mathbf{m}_d \boldsymbol{\phi}_r
+    \theta_{i,r,t} &\sim \mathcal{N}(\overline{\theta}_{i,r,t},\sigma_{\theta}) \\
+    \overline{\theta}_{i,r,t} &= \tilde{\mathbf{w}}_{D[i]} \tilde{\boldsymbol{\delta}}_{r,t} + \mathbf{w}_{D[i]} \boldsymbol{\delta}_{r,t} +\tilde{\mathbf{m}}_i \tilde{\boldsymbol{\phi}}_{r,t} + \mathbf{m}_i \boldsymbol{\phi}_{r,t}
+\end{aligned}
+\end{equation}
+
+
+\par
+TODO: $theat_{i,r,t}$ is the potential treatment effect if a field
+would have been treated in a certain year with a certain red area status, 
+note that many of these treatement effect are not needed 
+
+\par
+TODO Extensions: make $\omega_{D[i],Red[i]}$ and $\theta_{D[i],Red[i],t}$ a function of the (latent and observed) 
+district characteristics similarly are $\mu_{i,t}$ where the are normally distributed with a 
+mean determined by the (latent and observed) district characteristics.
+$r=Red[i]$
+\par
+TODO: $\omega_{D[i],Red[i]}$ should not vary by year, this does not make sense
+\par
+TODO Point out logic that the treatment effect is only allowed to differ at regional level, 
+in reality each field might react differently but, we what we imply here is that there
+is a common regional effect that is shared acorss fields in the same region. Our research question 
+is to estimate that common effect, not how each field reacted individually
+\par
+
+Note the implication of this specification. First, we assume that the
+observed field ($\mathbf{m}_i$), the latent field ($\tilde{\mathbf{m}}_i$), the observed regional 
+($\mathbf{w}_i$), and the latent regional ($\tilde{\mathbf{w}}_i$) characteristics are linearly 
+related to the logit values, with parameter vectors $\mathbf{\beta}$, $\tilde{\mathbf{\beta}}$,  
+$\mathbf{\alpha}$, and $\tilde{\mathbf{\alpha}}$ respectively. Additionally, we assume 
+that there are field, $\mu_{i,t}$, and regional and year specific $\gamma_{D[i],t}$ effects beyond the 
+effect of the (latent and observed) field and regional characteristics.
+Second, we assume that there is an additive year specific effect 
+$\tau_{t}$. Third, we assume a different intercept for the different red 
+areas $\omega_{D[i],Red[i]}$, with $r=Red[i]$ giving the index of the type of red area
+to which field $i$ belongs and $d=D[i]$. Finally, we assume that the treatment effect of the red area
+is an additive effect $\theta_{D[i],Red[i],t}$ that differs by the type of 
+red area $Red[i]$ field $i$ belongs to, by year $t$ and region $D[i]$ and that is only active if the 
+red area regulation applies in the respective year,
+i.e. if $Treat_{Red[i],t}=1$.
+
+\par
+To complete the statistical model we need to specify prior distribution of the
+parameters. We assume that the parameters are normally distributed with mean 0 
+and standard deviation 1:
+
+
+\begin{equation} 
+    \tilde{\mathbf{\beta}}_k, \mathbf{\beta}_k, \tilde{\mathbf{\alpha}}_l,\mathbf{\alpha}_l, \tau_{t}, \omega_{r},\theta_{r,t}  \sim \mathcal{N}(0,1)
+\end{equation}
+
+
+With these assumption in place we are able to generate synthetic data from the
+DGP. As the latent regional and field characteristics are not observed, for the 
+inference step we need to adjust the model to only include the observed 
+characteristics:
+
+\begin{equation}  
+    L_{i,t} = \mu_{i} +  \mathbf{m}_i \mathbf{\beta} + \gamma_{D[i]} + \mathbf{w}_i \mathbf{\alpha} +  \tau_{t} + \delta_{Red[i]} + \theta_{Red[i],t} Treat_{Red[i],t}
+\end{equation}
+Here we capture the latent regional and field characteristics by field, $\mu_{i}$, 
+and regional, $\gamma_{D[i]}$, fixed effects, with $d=D[i]$ giving the index of the region
+to which field $i$ belongs. 
+
+\begin{equation} 
+    \mu_{i}  \sim \mathcal{N}(0,1)
+\end{equation}
+\begin{equation} 
+    \gamma_{d} \sim \mathcal{N}(0,1)
+\end{equation}
+
+
+\section{Old Text}
+
+\section{Binary Logit Model}
+
+Crop choice $crop_{i,t}$ is a binary random variable with
+probability $p_{i,t}$:
+
+\begin{equation}  
+    crop_{i,t} \sim Bernoulli(p_{i,t})
+\end{equation}
+
+The probability $p_{i,t}$ is a logistic 
+function of Logit values $L_{i,t}$:
+
+\begin{equation}  
+    p_{i,t} = \frac{1}{1 + e^{-L_{i,t}}}
+\end{equation}
+
+
+Each element $L_{i,t}$ is a sum of a regional fixed effect
+$d_{D_{[i]}}$, where $D_{[i]}$ is an index variables giving the index of district $D$ 
+of field $i$, a year fixed effect $t_{T[t]}$, a different intercept 
+for the different red areas $delta_{Red[i]}$, and a red area 
+treatment effect $\theta_{Red[i],T[t]}$. If a area is treated is specified 
+with an indicator variable $Treat_{Red[i],T[t]}$, equal to 1 if area $i$ 
+is red in the specific year $t$.
+
+\begin{equation}  
+    L_{i,t} = \gamma_{D[i]} + \tau_{T[t]} + \delta_{Red[i]} + \theta_{Red[i],T[t]} Treat_{Red[i],T[t]}
+\end{equation}
+
+
+
+
+\section{Multinomial Model}
+
+
+Here we extend the binary model, modeling the probability of one 
+single crop, to a model that jointly models the probability of
+multiple crops.
+We assume that crop choice for field $i$ in year $t$ follows 
+a Markov process. Where the $(N_{crops},N_{crops})$ probability 
+matrix $P_{ti}$ gives the probability of crop choice $crop_{i,t}$
+for a given crop $crop_{t-1}$ in year $t-1$. Crop choice
+$crop_{t,i}$ is a multinomial random variable with 
+probabilities $P_{T[t],[crop_{t-1}]}$, which is the $[crop_{t-1}]$ 
+row of $P_{T[t]}$.
+
+\begin{equation}  
+    crop_{t,i} \sim Multinomial(P_{T[t],[crop_{t-1}]})
+\end{equation}
+
+Each row $P_{ti}$ of the matrix $P_{t}$
+is a softmax of a vector of logit values. 
+
+\begin{equation} 
+    P_{ti} = softmax(L_{ti})
+\end{equation}
+
+where $L_{t}$ is a $(N_{crops},N_{crops})$ matrix of logit values,
+and $L_{ti}$ is the $i$ row this matrix. 
+
+Each element $L_{tij}$ .
+
+\begin{equation} 
+    L_{tij}  = r_{[a,b]} + Crop_{ij}
+\end{equation}
+
+\begin{equation} 
+    c_{ij} \sim \mathcal{N}(0,1)
+\end{equation}
+
+ 
+
+
+
+
+
+
+\end{document}
