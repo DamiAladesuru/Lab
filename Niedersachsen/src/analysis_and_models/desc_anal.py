@@ -6,7 +6,7 @@ import os
 
 
 # %% Change the current working directory
-os.chdir('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/Code/Niedersachsen')
+os.chdir('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen')
 # Print the current working directory to verify the change
 print(os.getcwd())
 

@@ -12,6 +12,7 @@ geemap = "*"
 pyogrio = "*"
 seaborn = "*"
 xgboost = "*"
+ipykernel = "*"
 
 [dev-packages]
 
