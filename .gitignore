@@ -152,4 +152,4 @@ cython_debug/
 #.idea/
 
 # Ignore data folder
-Lab/Niedersachsen/data/*
+Niedersachsen/data/*
