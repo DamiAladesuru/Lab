@@ -19,7 +19,14 @@ left join grid to all_years data
 identify and delete duplicates
 save interim data as pickle
 
-
+########################################
 Move to desc_anal script
 load pkl file
 run field level analysis. If all worked as should in the process of joining grid to data, the outcome of this landscape level analaysis should be same as the one done in the load_maindata script
+
+
+########################################
+    # Grid-Area weight for regional analysis = grid area/ sum of area of
+    # fields in respective grid for each year
+#all_years['area_wght'] = all_years.area / all_years.groupby('year')\
+    # ['area_m2'].transform('sum')

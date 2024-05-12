@@ -108,6 +108,13 @@ all_years.info()
 years = all_years['year'].unique()
 years
 
+# %% check for instances with missing values
+missing_values = all_years[all_years.isnull().any(axis=1)]
+missing_values
+missing_values_count = all_years.isnull().any(axis=1).sum()
+missing_values_count
+# %% Drop rows with missing values	
+all_years = all_years.dropna()
 # %% #################################
 # Additional required columns for data
 #1. Field area  (m2)  
