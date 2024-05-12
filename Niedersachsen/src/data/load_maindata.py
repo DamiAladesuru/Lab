@@ -9,7 +9,7 @@ import os
 import zipfile
 
 # %% Load data
-# Define the base path
+# Define the base path to load data
 base_path = "N:/ds/data/Niedersachsen/Niedersachsen/Needed/schlaege_"
 
 # Define the years you want to load
@@ -97,7 +97,7 @@ for year in years:
 for year in years:
     print(f"{year}: {data[year].head()}")
 
-# %% Check for duplicates instance of 'year' and 'FLIK' columns
+# %% Check if FLIK is dupicated within each year
 for year in years:
     print(f"{year}: {data[year][['year', 'FLIK']].duplicated().sum()}")
     
@@ -110,11 +110,11 @@ years
 
 # %% check for instances with missing values
 missing_values = all_years[all_years.isnull().any(axis=1)]
-missing_values
-missing_values_count = all_years.isnull().any(axis=1).sum()
-missing_values_count
+all_years.isnull().any(axis=1).sum()
 # %% Drop rows with missing values	
 all_years = all_years.dropna()
+
+
 # %% #################################
 # Additional required columns for data
 #1. Field area  (m2)  
@@ -138,7 +138,7 @@ all_years.head()
 # %%
 #all_years.to_file("N:/ds/priv/aladesuru/NiedersachsenData/allyears_nieder/allyears_nieder.shp") #save to shapefile for visual inspection in e.g., ArcGIS
 
-# %% Reset the index and add the old index as a new column 'id'
+# %% Reset the index and add the old index as a new column 'id' which could be used to search for duplicated entries after joining grid
 all_years = all_years.reset_index().rename(columns={'index': 'id'})
 ######################################
 
@@ -149,11 +149,11 @@ all_years = all_years.reset_index().rename(columns={'index': 'id'})
 all_years.info()
 desc_stats = all_years.groupby('year')[['area_m2', 'peri_m', 'shp_index', 'fract']].describe()
 
-desc_stats.to_csv('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/Code/Niedersachsen/reports/statistics/ldscp_desc_stats.csv') #save to csv
+desc_stats.to_csv('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen/reports/statistics/ldscp_desc.csv') #save to csv
 #############################################
 # %% ########################################
 # Load Germany grid, join to main data and remore duplicates using largest intersection
-grid = gpd.read_file("C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/Code/Niedersachsen/data/raw/eea_10_km_eea-ref-grid-de_p_2013_v02_r00")
+grid = gpd.read_file("C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen/data/raw/eea_10_km_eea-ref-grid-de_p_2013_v02_r00")
 grid.plot()
 grid.info()
 grid.crs
@@ -217,11 +217,13 @@ gld = gld[["id","FLIK","year","area_m2","peri_m","shp_index","fract","CELLCODE",
 ######################################################
     
 # %% Save file to pickle
-#gld.to_pickle("C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/Code/Niedersachsen/data/interim/gld.pkl")
+#gld.to_pickle("C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen/data/interim/gld.pkl")
 # all_years_grid.to_file("N:/ds/priv/aladesuru/NiedersachsenData/all_years_grid/all_years_grid.shp") #save to shapefile
-# - Export as csv without geometry
-#gld.drop(columns=['geometry']).\
-    #to_csv("C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/Code/Niedersachsen/data/interim/niedersachsen_2012-2023_inclGridCellcode.csv")
+# %% - Export as csv without geometry
+gld.drop(columns=['geometry']).\
+    to_csv("C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen/data/interim/niedersachsen_2012-2023_inclGridCellcode.csv")
     
 
 
+
+# %%

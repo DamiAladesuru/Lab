@@ -13,6 +13,8 @@ pyogrio = "*"
 seaborn = "*"
 xgboost = "*"
 ipykernel = "*"
+dtale = "*"
+qgrid = "*"
 
 [dev-packages]
 
