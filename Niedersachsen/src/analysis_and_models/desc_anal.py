@@ -37,7 +37,7 @@ print("gridcount =", gld['CELLCODE'].nunique())
 
 # Create table of year, grid id, number of fields in grid, mean field size,
 # sd_fs, mean peri, sd_peri, mean shape index, sd_shape index.
-griddf = gld[['year', 'CELLCODE']].copy()
+griddf = gld[['year', 'CELLCODE']].drop_duplicates().copy()
 
 # %% Before we continue, first check if number of entries for area_m2, peri_m, shp and fract within each cellcode is thesame
 counts = gld.groupby('CELLCODE')[['area_m2', 'peri_m', 'shp_index', 'fract']].count()
@@ -105,8 +105,28 @@ griddf = pd.merge(griddf, sd_fract, on=['year', 'CELLCODE'])
 
 griddf.head()
 
-# %% Save to csv
-griddf.to_csv('data/interim/griddf.csv')
+# %% check for null values in griddf
+# Count the number of null values in each column
+null_counts = griddf.isnull().sum()
+# Print the null counts
+print(null_counts)
+# Filter rows with at least one null value
+null_rows = griddf[griddf.isnull().any(axis=1)]
+# Print the rows with null values
+print(null_rows)
+
+# %% Descriptive statistcs of the grid level metrics by year
+grid_desc_stats = griddf.groupby('year')[['fields', 'mfs_ha', 'sdfs_ha', 'mperi', \
+    'sdperi', 'mean_shp', 'sd_shp', 'mean_fract', 'sd_fract']].describe()
+# drop 25%, 50% and 75% columns for each metric
+grid_desc_stats.drop(columns=['25%', '50%', '75%'], level=1, inplace=True)
+
+grid_desc_stats.to_csv('reports/statistics/grid_desc_stats.csv') 
+#save to csv
+
+# %% Save to csv and pkl
+#griddf.to_csv('data/interim/griddf.csv')
+# griddf.to_pickle('data/interim/griddf.pkl')
 
 # Use line plot with shaded area to show the sd of each metric across grids
 # over years.
@@ -118,11 +138,10 @@ griddf.to_csv('data/interim/griddf.csv')
 ############################################################
 
 # %%
-import dtale
-d = dtale.show(griddf)
-d.open_browser()
+#import dtale
+#d = dtale.show(griddf)
+#d.open_browser()
 # %%
-import qgrid
-qgrid_widget = qgrid.show_grid(griddf, show_toolbar=True)
-qgrid_widget
-
+#import qgrid
+#qgrid_widget = qgrid.show_grid(griddf, show_toolbar=True)
+#qgrid_widget
