@@ -22,9 +22,9 @@ gld.head()
     # min, max and mean value of field size, peri and shape index
     # per year across landscape. We could have a box plot of these values
     # across years.
-ldscp1_desc_stats = gld.groupby('year')[['area_m2', 'peri_m', 'shp_index',\
-    'fract']].describe()
-ldscp1_desc_stats.to_csv('reports/statistics/ldscp1_desc_stats.csv') 
+#ldscp1_desc_stats = gld.groupby('year')[['area_m2', 'peri_m', 'shp_index',\
+    #'fract']].describe()
+#ldscp1_desc_stats.to_csv('reports/statistics/ldscp1_desc_stats.csv') 
 #save to csv
 
 
@@ -33,7 +33,7 @@ ldscp1_desc_stats.to_csv('reports/statistics/ldscp1_desc_stats.csv')
 #######################################
     # total number of grids within the geographic boundaries of the
     # study area
-print("gridcount =", gld['CELLCODE'].nunique())
+print("gridcount =", gld.groupby('year')['CELLCODE'].nunique())
 
 # Create table of year, grid id, number of fields in grid, mean field size,
 # sd_fs, mean peri, sd_peri, mean shape index, sd_shape index.
@@ -47,10 +47,10 @@ different_counts
 
 # %%
 # 1. Number of fields per grid
-fields = gld.groupby(['year', 'CELLCODE'])['area_m2'].count().reset_index()
-fields.columns = ['year', 'CELLCODE', 'fields']
-fields.head()
-griddf = pd.merge(griddf, fields, on=['year', 'CELLCODE'])
+#fields = gld.groupby(['year', 'CELLCODE'])['area_m2'].count().reset_index()
+#fields.columns = ['year', 'CELLCODE', 'fields']
+#fields.head()
+#griddf = pd.merge(griddf, fields, on=['year', 'CELLCODE'])
 
 # 2. Sum of field size per grid
 fs_sum = gld.groupby(['year', 'CELLCODE'])['area_m2'].sum().reset_index()
@@ -115,14 +115,26 @@ null_rows = griddf[griddf.isnull().any(axis=1)]
 # Print the rows with null values
 print(null_rows)
 
+
+# %% # Identify instances where 'fields' is 1
+field_1 = griddf[griddf['fields'] == 1]
+# Print the result
+print(field_1)
+#save to csv
+field_1.to_csv('reports/instances_with_field_1.csv')
+
+
 # %% Descriptive statistcs of the grid level metrics by year
 grid_desc_stats = griddf.groupby('year')[['fields', 'mfs_ha', 'sdfs_ha', 'mperi', \
     'sdperi', 'mean_shp', 'sd_shp', 'mean_fract', 'sd_fract']].describe()
 # drop 25%, 50% and 75% columns for each metric
-grid_desc_stats.drop(columns=['25%', '50%', '75%'], level=1, inplace=True)
-
 grid_desc_stats.to_csv('reports/statistics/grid_desc_stats.csv') 
 #save to csv
+grid_sums = griddf.groupby('year')[['fields', 'mfs_ha', 'sdfs_ha', 'mperi', \
+    'sdperi', 'mean_shp', 'sd_shp', 'mean_fract', 'sd_fract']].sum()
+grid_sums.to_csv('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen/reports/statistics/gridsums.csv') #save to csv
+
+
 
 # %% Save to csv and pkl
 #griddf.to_csv('data/interim/griddf.csv')
@@ -145,3 +157,5 @@ grid_desc_stats.to_csv('reports/statistics/grid_desc_stats.csv')
 #import qgrid
 #qgrid_widget = qgrid.show_grid(griddf, show_toolbar=True)
 #qgrid_widget
+
+

@@ -7,7 +7,11 @@ import pyogrio
 import pandas as pd
 import os
 import zipfile
+import seaborn as sns
+import matplotlib.pyplot as plt
 
+######################################
+#Preprocessing
 # %% Load data
 # Define the base path to load data
 base_path = "N:/ds/data/Niedersachsen/Niedersachsen/Needed/schlaege_"
@@ -101,9 +105,28 @@ for year in years:
 for year in years:
     print(f"{year}: {data[year][['year', 'FLIK']].duplicated().sum()}")
     
+# %%
+# Load adminsitrative boundary GeoJSON file of Germany
+gdf = gpd.read_file("C:/Users/aladesuru/Downloads/de.json")
+# %% Filter the GeoDataFrame to get the boundary of Niedersachsen
+nieder = gdf[gdf['name'] == "Niedersachsen"]
+nieder.plot()
+nieder.crs
+# %% reproject nieder to epsg 25832
+nieder=nieder.to_crs(epsg=25832)
+
+# %% Join the data for each year to the Niedersachsen boundary
+for year in years:
+    data[year] = gpd.sjoin(data[year], nieder, how='inner', predicate='intersects')
+    print(f"{year}: {data[year].info()}")
+    # remove columns index_right, source, id, name
+    data[year] = data[year].drop(columns=['index_right', 'source', 'id', 'name'])
+# %% ############################################
+# Append data for all years
 # %% Concatenate all dataframes
 all_years = pd.concat(list(data.values()), ignore_index=True)
 all_years.info()
+
 # %% Get unique years
 years = all_years['year'].unique()
 years
@@ -111,14 +134,15 @@ years
 # %% check for instances with missing values
 missing_values = all_years[all_years.isnull().any(axis=1)]
 all_years.isnull().any(axis=1).sum()
-# %% Drop rows with missing values	
-all_years = all_years.dropna()
+# %% if there are missing values less than 1% of data, drop rows with missing values	
+#all_years = all_years.dropna()
 
 
 # %% #################################
 # Additional required columns for data
-#1. Field area  (m2)  
+#1. Field area  (m2 and ha) 
 all_years['area_m2'] = all_years.area
+all_years['area_ha'] = all_years['area_m2']*(1/10000)
 #2. Perimeter (m)
 all_years['peri_m'] = all_years.length
 #3. Shape index
@@ -138,18 +162,21 @@ all_years.head()
 # %%
 #all_years.to_file("N:/ds/priv/aladesuru/NiedersachsenData/allyears_nieder/allyears_nieder.shp") #save to shapefile for visual inspection in e.g., ArcGIS
 
-# %% Reset the index and add the old index as a new column 'id' which could be used to search for duplicated entries after joining grid
-all_years = all_years.reset_index().rename(columns={'index': 'id'})
-######################################
-
 # %% ########################################
 # Field/Landscape level descriptive statistics
     # total number of fields per year
     # min, max and mean value of field size, peri and shape index per year across landscape. We could have a box plot of these values across years.
 all_years.info()
-desc_stats = all_years.groupby('year')[['area_m2', 'peri_m', 'shp_index', 'fract']].describe()
-
+desc_stats = all_years.groupby('year')[['area_m2', 'area_ha', 'peri_m', 'shp_index', 'fract']].describe()
+# Calculate the sum of each column
+column_sums = all_years.groupby('year')[['area_m2', 'area_ha', 'peri_m', 'shp_index', 'fract']].sum()
 desc_stats.to_csv('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen/reports/statistics/ldscp_desc.csv') #save to csv
+column_sums.to_csv('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen/reports/statistics/sums.csv') #save to csv
+
+# %% ######################################
+# Reset the index and add the old index as a new column 'id' which could be used to search for duplicated entries after joining grid
+all_years = all_years.reset_index().rename(columns={'index': 'id'})
+
 #############################################
 # %% ########################################
 # Load Germany grid, join to main data and remore duplicates using largest intersection
@@ -168,6 +195,10 @@ grid.head()
 allyears_grid = gpd.sjoin(all_years, grid, how='left', predicate="intersects")
 allyears_grid.info()
 allyears_grid.head()
+
+# %% check for instances with missing values
+missing_ = allyears_grid[allyears_grid.isnull().any(axis=1)]
+allyears_grid.isnull().any(axis=1).sum() #0
 
 # %% Check for duplicates in the 'identifier' column
 duplicates = allyears_grid.duplicated('id')
@@ -217,13 +248,8 @@ gld = gld[["id","FLIK","year","area_m2","peri_m","shp_index","fract","CELLCODE",
 ######################################################
     
 # %% Save file to pickle
-#gld.to_pickle("C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen/data/interim/gld.pkl")
+gld.to_pickle("C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen/data/interim/gld.pkl")
 # all_years_grid.to_file("N:/ds/priv/aladesuru/NiedersachsenData/all_years_grid/all_years_grid.shp") #save to shapefile
-# %% - Export as csv without geometry
-gld.drop(columns=['geometry']).\
-    to_csv("C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen/data/interim/niedersachsen_2012-2023_inclGridCellcode.csv")
-    
-
-
+   
 
 # %%
