@@ -12,6 +12,13 @@ import matplotlib.pyplot as plt
 
 ######################################
 #Preprocessing
+
+
+# %% Set the current working directory
+os.chdir('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen')
+# Print the current working directory to verify the change
+print(os.getcwd())
+
 # %% Load data
 # Define the base path to load data
 base_path = "N:/ds/data/Niedersachsen/Niedersachsen/Needed/schlaege_"
@@ -107,9 +114,10 @@ for year in years:
     
 # %%
 # Load adminsitrative boundary GeoJSON file of Germany
-gdf = gpd.read_file("C:/Users/aladesuru/Downloads/de.json")
+degdf = gpd.read_file('data/raw/de_states.json')
+
 # %% Filter the GeoDataFrame to get the boundary of Niedersachsen
-nieder = gdf[gdf['name'] == "Niedersachsen"]
+nieder = degdf[degdf['name'] == "Niedersachsen"]
 nieder.plot()
 nieder.crs
 # %% reproject nieder to epsg 25832
@@ -170,8 +178,8 @@ all_years.info()
 desc_stats = all_years.groupby('year')[['area_m2', 'area_ha', 'peri_m', 'shp_index', 'fract']].describe()
 # Calculate the sum of each column
 column_sums = all_years.groupby('year')[['area_m2', 'area_ha', 'peri_m', 'shp_index', 'fract']].sum()
-desc_stats.to_csv('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen/reports/statistics/ldscp_desc.csv') #save to csv
-column_sums.to_csv('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen/reports/statistics/sums.csv') #save to csv
+desc_stats.to_csv('reports/statistics/ldscp_desc.csv') #save to csv
+column_sums.to_csv('reports/statistics/sums.csv') #save to csv
 
 # %% ######################################
 # Reset the index and add the old index as a new column 'id' which could be used to search for duplicated entries after joining grid
@@ -180,14 +188,14 @@ all_years = all_years.reset_index().rename(columns={'index': 'id'})
 #############################################
 # %% ########################################
 # Load Germany grid, join to main data and remore duplicates using largest intersection
-grid = gpd.read_file("C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen/data/raw/eea_10_km_eea-ref-grid-de_p_2013_v02_r00")
+grid = gpd.read_file('data/raw/eea_10_km_eea-ref-grid-de_p_2013_v02_r00')
 grid.plot()
 grid.info()
 grid.crs
 # %%
 grid=grid.to_crs(epsg=25832)
 # %% Save reprojected grid to shapefile for visual inspection in e.g., ArcGIS
-#grid.to_file("C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/Code/Niedersachsen/data/processed/eeagrid_25832/eeagrid_25832.shp")
+#grid.to_file('data/interim/eeagrid_25832/eeagrid_25832.shp')
 #%%
 grid.head()
 
@@ -209,19 +217,16 @@ print(duplicates.sum())
 # --- Create a sample with all double assigned polygons from allyears_grid, which are 
 #     crossing grid borders and, therefore, are assigned to more than one
 #     grid.
-
 double_assigned = allyears_grid[allyears_grid.index.isin(allyears_grid[allyears_grid.index.duplicated()].index)]
 
 #%%
 # - Delete all double assigned polygons, i.d. polygons that are assigned to more
 #   than one grid
-
 allyears_grid = allyears_grid[~allyears_grid.index.isin(allyears_grid[allyears_grid.index.duplicated()].index)]
 
 #%%
 # --- Estimate the largest intersection for each polygon with a grid in the
 #     double assigned sample. Use the unit of ha.
-
 double_assigned['intersection'] = [
     a.intersection(grid[grid.index == b].\
       geometry.values[0]).area/10000 for a, b in zip(
@@ -230,26 +235,22 @@ double_assigned['intersection'] = [
 
 #%%
 # --- Sort by intersection area and keep only the  row with the largest intersection.
-
 double_assigned = double_assigned.sort_values(by='intersection').\
          groupby('id').last().reset_index()
 
 #%%
 # --- Add the data double_assigned to the allyears_grid data and name it gridleveldata(gld)
-
 gld = pd.concat([allyears_grid,double_assigned])
 
 #%%
 # --- Only keep needed columns
-
 gld = gld[["id","FLIK","year","area_m2","peri_m","shp_index","fract","CELLCODE","geometry"]]
-
 
 ######################################################
     
 # %% Save file to pickle
-gld.to_pickle("C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen/data/interim/gld.pkl")
-# all_years_grid.to_file("N:/ds/priv/aladesuru/NiedersachsenData/all_years_grid/all_years_grid.shp") #save to shapefile
+#gld.to_pickle('data/interim/gld.pkl')
+# gld.to_file("N:/ds/priv/aladesuru/NiedersachsenData/all_years_grid/gld.shp") #save to shapefile
    
 
 # %%

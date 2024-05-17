@@ -15,6 +15,7 @@ xgboost = "*"
 ipykernel = "*"
 dtale = "*"
 qgrid = "*"
+mplleaflet = "*"
 
 [dev-packages]
 

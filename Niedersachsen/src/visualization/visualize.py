@@ -5,6 +5,7 @@ import os
 import seaborn as sns
 import pickle
 import matplotlib.pyplot as plt
+import mplleaflet
 
 # %% Change the current working directory
 os.chdir('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen')
@@ -15,7 +16,7 @@ print(os.getcwd())
 landdesc = pd.read_csv('reports/statistics/ldscp/ldscp_desc.csv') 
 
 # %%
-# Create line plot of year vs count of all fields
+# Create line plot of yearly count of all fields
 sns.lineplot(data=landdesc, x='year', y='count', color='purple')
 # Set the plot title and labels
 plt.title('Count of Fields per Year')
@@ -25,7 +26,7 @@ plt.ylabel('Field Count')
 plt.show()
 
 # %%
-# Create line plot of year vs sum of all field areas 
+# Create line plot of yearly sum of all field areas 
 sns.lineplot(data=landdesc, x='year', y='areahsum', color='purple')
 # Set the plot title and labels
 plt.title('Total Agricultural Area in Data (ha) per Year')
@@ -35,17 +36,17 @@ plt.ylabel('Sum of Field Size (ha)')
 plt.show()
 
 # %%
-# Create reg plot of year vs sum of all field areas 
-sns.regplot(data=landdesc, x='year', y='areahsum', color='purple')
+# Create line plot of yearly sum of all field perimeter
+sns.lineplot(data=landdesc, x='year', y='perimsum', color='purple')
 # Set the plot title and labels
-plt.title('Total Agricultural Area in Data (ha) per Year')
+plt.title('Total Perimeter of Fields in Data (m) per Year')
 plt.xlabel('Year')
-plt.ylabel('Sum of Field Size (ha)')
+plt.ylabel('Sum of Field Perimeter (m)')
 # Show the plot
 plt.show()
 
 # %%
-# Create line plot of year vs mean field size
+# Create line plot of yearly mean field size
 meanplot = sns.lineplot(data=landdesc, x='year', y='areahmean', color='purple')
 # Annotate each point on the regplot
 for line in range(0, landdesc.shape[0]):
@@ -59,17 +60,7 @@ plt.ylabel('Mean of Field Size (ha)')
 # Show the plot
 plt.show()
 
-# %%
-# Create line plot of year vs sum of all field perimeter
-sns.lineplot(data=landdesc, x='year', y='perimsum', color='purple')
-# Set the plot title and labels
-plt.title('Total Perimeter of Fields in Data (m) per Year')
-plt.xlabel('Year')
-plt.ylabel('Sum of Field Perimeter (m)')
-# Show the plot
-plt.show()
-
-# %%Create line plot of year vs mean shp index
+# %%Create line plot of yearly mean shp index
 sns.lineplot(data=landdesc, x='year', y='shpimean', color='purple')
 # Set the plot title and labels
 plt.title('Trend in Mean Shape Index Across Years')
@@ -78,7 +69,7 @@ plt.ylabel('Mean Shape Index')
 # Show the plot
 plt.show()
 
-# %% Create line plot of year vs mean fractal dimension
+# %% Create line plot of yearly mean fractal dimension
 sns.lineplot(data=landdesc, x='year', y='fractmean', color='purple')
 # Set the plot title and labels
 plt.title('Trend in Mean Fractal Dimension Across Years')
@@ -86,8 +77,9 @@ plt.xlabel('Year')
 plt.ylabel('Mean Fractal Dimension (1 \< MFD \< 2)')
 # Show the plot
 plt.show()
+
 ######################################################################################################
-# %% Load pickle file
+# %% Load grid 
 with open('data/interim/griddf.pkl', 'rb') as f:
     griddf = pickle.load(f)
 griddf.info()    
@@ -126,25 +118,40 @@ g.set_xlabels('MFS Range (ha)')
 g.set_ylabels('Grid Count')
 g.show()
  
+# %%
+# Create correlation plot of grid mfs_ha and mean_fract 
+sns.scatterplot(data=griddf, x='mfs_ha', y='mean_fract', color='purple')
+# Set the plot title and labels
+plt.title('Correlation between Mean Field Size and Mean Fractal Dimension')
+plt.xlabel('Mean Field Size')
+plt.ylabel('Mean Fractal Dimension')
+# Show the plot
+plt.show()
+
+# %%
+# Create correlation plot of grid mfs_ha and field count 
+sns.scatterplot(data=griddf, x='mfs_ha', y='fields', color='purple')
+# Set the plot title and labels
+plt.title('Correlation between Mean Field Size and Field Count')
+plt.xlabel('Mean Field Size')
+plt.ylabel('Field Count')
+# Show the plot
+plt.show()
+
 ######################################################################################################################
 # %% load the grid descriptive stat csv file
 griddesc = pd.read_csv('reports/statistics/grid_desc_statssum.csv') 
 
 # %%
-# Create line plot of year vs mean field size mean
-meanplot = sns.lineplot(data=griddesc, x='year', y='mfshm', color='purple')
-# Annotate each point on the regplot
-for line in range(0, griddesc.shape[0]):
-     meanplot.text(griddesc.year[line]+0.2, griddesc.mfshm[line], 
-     round(griddesc.mfshm[line], 2), horizontalalignment='left', 
-     size='medium', color='black', weight='semibold')
+# Create correlation plot of grid mfshm and mfractm 
+sns.scatterplot(data=griddesc, x='mfshm', y='mfractm', color='purple')
 # Set the plot title and labels
-plt.title('Mean Field Size (ha) per Year')
-plt.xlabel('Year')
-plt.ylabel('Mean of Field Size (ha)')
+plt.title('Correlation between Grid Mean Field Size Mean and Mean Fractal Dimension Mean')
+plt.xlabel('Mean Field Size Mean (ha)')
+plt.ylabel('Mean Fractal Dimension Mean')
 # Show the plot
 plt.show()
 
-#%%
-sns.histplot(griddf_, x="year", y="mfs_ha", hue="year", multiple="stack")
 
+
+# %%
