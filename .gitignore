@@ -154,3 +154,4 @@ cython_debug/
 # Ignore data folder
 Niedersachsen/data/*
 Niedersachsen/reports/*
+Learning/BoroughExercise/data/*

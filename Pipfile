@@ -16,6 +16,8 @@ ipykernel = "*"
 dtale = "*"
 qgrid = "*"
 mplleaflet = "*"
+shapely = "*"
+geopy = "*"
 
 [dev-packages]
 
