@@ -5,12 +5,18 @@ import os
 import seaborn as sns
 import pickle
 import matplotlib.pyplot as plt
-import mplleaflet
 
 # %% Change the current working directory
 os.chdir('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen')
 # Print the current working directory to verify the change
 print(os.getcwd())
+
+# %% Load pickle file
+with open('data/interim/gld.pkl', 'rb') as f:
+    gld = pickle.load(f)
+gld.info()    
+gld.head() 
+
 ######################################################################################################
 # %% landscape visualization
 landdesc = pd.read_csv('reports/statistics/ldscp/ldscp_desc.csv') 
@@ -143,6 +149,21 @@ plt.show()
 griddesc = pd.read_csv('reports/statistics/grid_desc_statssum.csv') 
 
 # %%
+# Create line plot of yearly mean field size
+meanplot = sns.lineplot(data=griddesc, x='year', y='mfshm', color='purple')
+# Annotate each point on the regplot
+for line in range(0, griddesc.shape[0]):
+     meanplot.text(griddesc.year[line]+0.2, griddesc.mfshm[line], 
+     round(griddesc.mfshm[line], 2), horizontalalignment='left', 
+     size='medium', color='black', weight='semibold')
+# Set the plot title and labels
+plt.title('Grid-level Mean Field Size (ha) per Year')
+plt.xlabel('Year')
+plt.ylabel('Mean of Field Size (ha)')
+# Show the plot
+plt.show()
+
+# %%
 # Create correlation plot of grid mfshm and mfractm 
 sns.scatterplot(data=griddesc, x='mfshm', y='mfractm', color='purple')
 # Set the plot title and labels
@@ -152,6 +173,23 @@ plt.ylabel('Mean Fractal Dimension Mean')
 # Show the plot
 plt.show()
 
+# %% basic plotting of grid cell with cellcode
+# gld[gld['CELLCODE'] == '10kmE442N331'].plot() or
+# gld.loc[gld['CELLCODE'] == '10kmE442N331'].plot()
+
+ 
+##########################################################################
+# Visulaizing fields in select grid cells
+##########################################################################
+# %%
+# 1. find in griddf the CELLCODE with random x (e.g., 200) number of fields
+CELLCODEX = griddf.loc[griddf['MFSChng'] == 3.3129241246123406, 'CELLCODE'].values[0]
+print(CELLCODEX)
+
+# %% plot fields with target cellcode and selected year using gld data
+gld[(gld['CELLCODE'] == CELLCODEX) & (gld['year'] == 2023)].plot()
 
 
+# %% plot cell 10kmE419N331
+gld[(gld['CELLCODE'] == '10kmE419N331') & (gld['year'] == 2023)].plot(edgecolor='red', facecolor='none', zoom=5)
 # %%

@@ -12,7 +12,7 @@ os.chdir('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/
 # Print the current working directory to verify the change
 print(os.getcwd())
 
-# %%
+
 # %% Load grid 
 with open('data/interim/griddf.pkl', 'rb') as f:
     griddf = pickle.load(f)
@@ -26,8 +26,6 @@ grid.plot()
 grid.info()
 grid.crs
 
-# %%
-griddf_ = griddf_.to_crs(epsg=4326)
 
 # %% Join grid to griddf using cellcode
 griddf_ = griddf.merge(grid, on='CELLCODE')
@@ -52,13 +50,13 @@ center_lon = (min_lon + max_lon) / 2
 
 # %%
 # create new geodataframe containing only id, centroid, centroid_x and centroid_y
-base_gdf = griddf_[['id', 'centroid', 'centroid_x', 'centroid_y']]
+base_gdf = griddf_[['CELLCODE', 'centroid']]
 # %%
 base_gdf.info()
 
 # %%
 #from griddf_ drop 'centroid', 'centroid_x', 'centroid_y'
-griddf_ = griddf_.drop(columns=['EOFORIGIN', 'NOFORIGIN', 'centroid', 'centroid_x', 'centroid_y'])
+griddf_ = griddf_.drop(columns=['EOFORIGIN', 'NOFORIGIN', 'centroid'])
 
 # %%
 griddf_ = griddf_.reset_index().rename(columns={'index': 'id'})

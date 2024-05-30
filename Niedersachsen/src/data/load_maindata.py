@@ -9,7 +9,7 @@ import os
 import zipfile
 import seaborn as sns
 import matplotlib.pyplot as plt
-
+import pickle
 ######################################
 #Preprocessing
 
@@ -89,7 +89,7 @@ for year in years:
 
 # %% Delete unneeded columns from the dataframes
 # Define the column name you want to delete
-column_names = ['Shape_Area', 'Shape_Leng', 'SHAPE_Leng', 'SHAPE_Area', 'SCHLAGNR', 'SCHLAGBEZ', 'FLAECHE', 'AKT_FL', 'AKTUELLEFL', 'KULTURCODE']
+column_names = ['Shape_Area', 'Shape_Leng', 'SHAPE_Leng', 'SHAPE_Area', 'SCHLAGNR', 'SCHLAGBEZ', 'FLAECHE', 'AKT_FL', 'AKTUELLEFL']
 # Delete the columns for each dataframe
 for year in years:
     for column_name in column_names:
@@ -144,6 +144,29 @@ missing_values = all_years[all_years.isnull().any(axis=1)]
 all_years.isnull().any(axis=1).sum()
 # %% if there are missing values less than 1% of data, drop rows with missing values	
 #all_years = all_years.dropna()
+
+# check for all years in all_years the min and max value of 'KULTURCODE' column
+# %%
+print(['year'], all_years.groupby('year')['KULTURCODE'].max())
+
+# %%
+print(['year'], all_years.groupby('year')['KULTURCODE'].min())
+
+# %% cahange the data type of 'KULTURCODE' column to integer
+all_years['KULTURCODE'] = all_years['KULTURCODE'].astype(int)
+
+# %% check if data contains ecological area codes
+def stille_count(data, year):
+    a = data[(data['KULTURCODE'] >= 545) & (data['KULTURCODE'] <= 587)]
+    b = data[(data['KULTURCODE'] >= 52) & (data['KULTURCODE'] <= 66)]
+    acount = a.groupby('year')['KULTURCODE'].value_counts()
+    bcount = b.groupby('year')['KULTURCODE'].value_counts()
+    joined = pd.concat([acount, bcount], axis=1)
+    sorted = joined.sort_index()
+    return sorted
+print(stille_count(all_years, years))
+# to csv
+stille_count(all_years, years).to_csv('reports/statistics/stille_count.csv') #save to csv
 
 
 # %% #################################

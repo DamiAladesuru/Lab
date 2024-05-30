@@ -105,6 +105,24 @@ griddf = pd.merge(griddf, sd_fract, on=['year', 'CELLCODE'])
 
 griddf.head()
 
+#############################################################
+# Calculating changes in grid level aspect values over years
+###############################################################
+# %%
+# Create table of differences over years in each grid of number of fields in grid, mean field size and mean shape index
+griddf = griddf.sort_values(['CELLCODE', 'year'])  # Ensure the data is sorted by 'CELLCODE' and 'year'
+griddf['MFSChng'] = griddf.groupby('CELLCODE')['mfs_ha'].diff()
+griddf['MFSChng'] = griddf['MFSChng'].fillna(0)
+
+griddf['MSIChng'] = griddf.groupby('CELLCODE')['mean_shp'].diff()
+griddf['MSIChng'] = griddf['MSIChng'].fillna(0)
+
+griddf['MfractChng'] = griddf.groupby('CELLCODE')['mean_fract'].diff()
+griddf['MfractChng'] = griddf['MfractChng'].fillna(0)
+
+griddf.head(15)
+
+
 # %% check for null values in griddf
 # Count the number of null values in each column
 null_counts = griddf.isnull().sum()
@@ -125,8 +143,8 @@ field_1.to_csv('reports/instances_with_field_1.csv')
 
 
 # %% Descriptive statistcs of the grid level metrics by year
-grid_desc_stats = griddf.groupby('year')[['fields', 'mfs_ha', 'sdfs_ha', 'mperi', \
-    'sdperi', 'mean_shp', 'sd_shp', 'mean_fract', 'sd_fract']].describe()
+grid_desc_stats = griddf.groupby('year')[['fields', 'mfs_ha', 'MFSChng', 'sdfs_ha', 'mperi', \
+    'sdperi', 'mean_shp', 'MSIChng', 'sd_shp', 'mean_fract', 'MfractChng', 'sd_fract']].describe()
 # drop 25%, 50% and 75% columns for each metric
 grid_desc_stats.to_csv('reports/statistics/grid_desc_stats.csv') 
 #save to csv

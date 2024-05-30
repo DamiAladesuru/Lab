@@ -18,6 +18,7 @@ qgrid = "*"
 mplleaflet = "*"
 shapely = "*"
 geopy = "*"
+rasterio = "*"
 
 [dev-packages]
 
