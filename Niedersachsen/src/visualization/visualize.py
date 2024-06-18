@@ -5,6 +5,7 @@ import os
 import seaborn as sns
 import pickle
 import matplotlib.pyplot as plt
+import math as m
 
 # %% Change the current working directory
 os.chdir('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen')
@@ -85,27 +86,11 @@ plt.ylabel('Mean Fractal Dimension (1 \< MFD \< 2)')
 plt.show()
 
 ######################################################################################################
-# %% Load grid 
+# %% Load griddf 
 with open('data/interim/griddf.pkl', 'rb') as f:
     griddf = pickle.load(f)
 griddf.info()    
 griddf.head()
-
-
-# %% ########################################
-# Load Germany grid to obtain the grid geometry
-grid = gpd.read_file('data/interim/eeagrid_25832')
-grid.plot()
-grid.info()
-grid.crs
-
-# %% Join grid to griddf using cellcode
-griddf_ = griddf.merge(grid, on='CELLCODE')
-griddf_.info()
-griddf_.head()
-
-# %% Convert the DataFrame to a GeoDataFrame
-griddf_ = gpd.GeoDataFrame(griddf_, geometry='geometry')
 
 # %% 
 # Distribution of count of grids based on mean field size range 
@@ -114,10 +99,10 @@ bins = [0, 2, 4, 8, 16, 32, 64, 150, float('inf')]
 # Define the bin labels
 labels = ['<2', '2-4', '4-8', '8-16', '16-32', '32-64', '64-150', '>150']
 # Create the range column
-griddf_['mfs_range'] = pd.cut(griddf_['mfs_ha'], bins=bins, labels=labels)
+griddf['mfs_range'] = pd.cut(griddf['mfs_ha'], bins=bins, labels=labels)
 
 # %% Create a FacetGrid with a count plot for each year in griddf
-g = sns.FacetGrid(griddf_, col="year", col_wrap=4, height=4)
+g = sns.FacetGrid(griddf, col="year", col_wrap=4, height=4)
 g.map(sns.countplot, "mfs_range", color='purple')
 g.set_titles("{col_name}")
 g.set_xlabels('MFS Range (ha)')
@@ -178,18 +163,3 @@ plt.show()
 # gld.loc[gld['CELLCODE'] == '10kmE442N331'].plot()
 
  
-##########################################################################
-# Visulaizing fields in select grid cells
-##########################################################################
-# %%
-# 1. find in griddf the CELLCODE with random x (e.g., 200) number of fields
-CELLCODEX = griddf.loc[griddf['MFSChng'] == 3.3129241246123406, 'CELLCODE'].values[0]
-print(CELLCODEX)
-
-# %% plot fields with target cellcode and selected year using gld data
-gld[(gld['CELLCODE'] == CELLCODEX) & (gld['year'] == 2023)].plot()
-
-
-# %% plot cell 10kmE419N331
-gld[(gld['CELLCODE'] == '10kmE419N331') & (gld['year'] == 2023)].plot(edgecolor='red', facecolor='none', zoom=5)
-# %%

@@ -15,18 +15,18 @@ with open('data/interim/gld.pkl', 'rb') as f:
     gld = pickle.load(f)
 gld.info()    
 gld.head()    
-#########################################
-# %% Field/ landscape level descriptive statistics
-#########################################
-    # total number of fields per year
-    # min, max and mean value of field size, peri and shape index
-    # per year across landscape. We could have a box plot of these values
-    # across years.
-#ldscp1_desc_stats = gld.groupby('year')[['area_m2', 'peri_m', 'shp_index',\
-    #'fract']].describe()
-#ldscp1_desc_stats.to_csv('reports/statistics/ldscp1_desc_stats.csv') 
-#save to csv
 
+
+# %% ########################################
+# Field/Landscape level descriptive statistics
+    # total number of fields per year
+    # min, max and mean value of field size, peri and shape index per year across landscape. We could have a box plot of these values across years.
+gld.info()
+desc_stats = gld.groupby('year')[['area_m2', 'area_ha', 'peri_m', 'shp_index', 'fract']].describe()
+# Calculate the sum of each column
+column_sums = gld.groupby('year')[['area_m2', 'area_ha', 'peri_m', 'shp_index', 'fract']].sum()
+desc_stats.to_csv('reports/statistics/ldscp_desc.csv') #save to csv
+column_sums.to_csv('reports/statistics/sums.csv') #save to csv
 
 # %% #######################################
 # Grid level descriptive statistics
@@ -83,22 +83,34 @@ sdperi = sdperi.reset_index()
 sdperi.columns = ['year', 'CELLCODE', 'sdperi']
 griddf = pd.merge(griddf, sdperi, on=['year', 'CELLCODE'])
 
-# 8. Mean shape index in the grids
+# 8. Sum of shape index per grid
+shp_sum = gld.groupby(['year', 'CELLCODE'])['shp_index'].sum().reset_index()
+shp_sum.columns = ['year', 'CELLCODE', 'shp_sum']
+shp_sum.head()
+griddf = pd.merge(griddf, shp_sum, on=['year', 'CELLCODE'])
+
+# 9. Mean shape index in the grids
 mean_shp = gld.groupby(['year', 'CELLCODE'])['shp_index'].mean().reset_index()
 mean_shp.columns = ['year', 'CELLCODE', 'mean_shp']
 griddf = pd.merge(griddf, mean_shp, on=['year', 'CELLCODE'])
 
-# 9. Standard deviation of shape index in the grids
+# 10. Standard deviation of shape index in the grids
 sd_shp = gld.groupby(['year', 'CELLCODE'])['shp_index'].std().reset_index()
 sd_shp.columns = ['year', 'CELLCODE', 'sd_shp']
 griddf = pd.merge(griddf, sd_shp, on=['year', 'CELLCODE'])
 
-# 10. Mean fractal dimension in the grids
+# 11. Sum of mean fractal dimension per grid
+fract_sum = gld.groupby(['year', 'CELLCODE'])['fract'].sum().reset_index()
+fract_sum.columns = ['year', 'CELLCODE', 'fract_sum']
+fract_sum.head()
+griddf = pd.merge(griddf, fract_sum, on=['year', 'CELLCODE'])
+
+# 12. Mean fractal dimension in the grids
 mean_fract = gld.groupby(['year', 'CELLCODE'])['fract'].mean().reset_index()
 mean_fract.columns = ['year', 'CELLCODE', 'mean_fract']
 griddf = pd.merge(griddf, mean_fract, on=['year', 'CELLCODE'])
 
-# 11. Standard deviation of fractal dimension in the grids
+# 13. Standard deviation of fractal dimension in the grids
 sd_fract = gld.groupby(['year', 'CELLCODE'])['fract'].std().reset_index()
 sd_fract.columns = ['year', 'CELLCODE', 'sd_fract']
 griddf = pd.merge(griddf, sd_fract, on=['year', 'CELLCODE'])
@@ -142,21 +154,35 @@ print(field_1)
 field_1.to_csv('reports/instances_with_field_1.csv')
 
 
-# %% Descriptive statistcs of the grid level metrics by year
+# %% Descriptive statistics of the grid level metrics by year
 grid_desc_stats = griddf.groupby('year')[['fields', 'mfs_ha', 'MFSChng', 'sdfs_ha', 'mperi', \
-    'sdperi', 'mean_shp', 'MSIChng', 'sd_shp', 'mean_fract', 'MfractChng', 'sd_fract']].describe()
+    'sdperi', 'mean_shp', 'shp_sum', 'MSIChng', 'sd_shp', 'mean_fract', 'fract_sum', 'MfractChng', 'sd_fract']].describe()
 # drop 25%, 50% and 75% columns for each metric
 grid_desc_stats.to_csv('reports/statistics/grid_desc_stats.csv') 
 #save to csv
 grid_sums = griddf.groupby('year')[['fields', 'mfs_ha', 'sdfs_ha', 'mperi', \
-    'sdperi', 'mean_shp', 'sd_shp', 'mean_fract', 'sd_fract']].sum()
+    'sdperi', 'mean_shp', 'shp_sum', 'sd_shp', 'mean_fract', 'fract_sum', 'sd_fract']].sum()
 grid_sums.to_csv('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen/reports/statistics/gridsums.csv') #save to csv
 
 
+# %% ########################################
+# Load Germany grid to obtain the grid geometry
+grid = gpd.read_file('data/interim/eeagrid_25832')
+grid.plot()
+grid.info()
+grid.crs
+
+# Join grid to griddf using cellcode
+griddf = griddf.merge(grid, on='CELLCODE')
+griddf.info()
+griddf.head()
+
+# Convert the DataFrame to a GeoDataFrame
+griddf = gpd.GeoDataFrame(griddf, geometry='geometry')
 
 # %% Save to csv and pkl
 #griddf.to_csv('data/interim/griddf.csv')
-# griddf.to_pickle('data/interim/griddf.pkl')
+griddf.to_pickle('data/interim/griddf.pkl')
 
 # Use line plot with shaded area to show the sd of each metric across grids
 # over years.
@@ -175,5 +201,3 @@ grid_sums.to_csv('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnaly
 #import qgrid
 #qgrid_widget = qgrid.show_grid(griddf, show_toolbar=True)
 #qgrid_widget
-
-
