@@ -409,6 +409,10 @@ gld[gld['year'] == 2015].plot(figsize=(10, 6))
 plt.title('Geospatial Distribution in 2015')
 plt.show()
 
+gld[gld['year'] == 2016].plot(figsize=(10, 6))
+plt.title('Geospatial Distribution in 2016')
+plt.show()
+
 gld[gld['year'] == 2017].plot(figsize=(10, 6))
 plt.title('Geospatial Distribution in 2017')
 plt.show()
@@ -437,3 +441,4 @@ plt.show()
 gld[gld['year'] == 2023].plot(figsize=(10, 6))
 plt.title('Geospatial Distribution in 2023')
 plt.show()
+# %%
