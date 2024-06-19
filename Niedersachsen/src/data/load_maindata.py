@@ -77,7 +77,7 @@ for year in years:
             data[year] = data[year].drop(columns=column_name)
 
 # %% Define the old and new names for kultur code column
-old_names = ['KC_GEM', 'KC_FESTG', 'KC', 'NC_FESTG']
+old_names = ['KC_GEM', 'KC_FESTG', 'KC', 'NC_FESTG', 'KULTURCODE']
 new_name = 'kulturcode'
 # Change the column name for each dataframe
 for year in years:
@@ -104,7 +104,7 @@ for year in years:
     data[year]['kulturcode'] = data[year]['kulturcode'].astype(int)
     print(f"{year}: kulturcode data type is now {data[year]['kulturcode'].dtype}")
 
-# %% info for each year to verify deletion
+# %% info for each year to verify modification
 for year in years:
     print(f"{year}: {data[year].info()}")
 
@@ -120,6 +120,7 @@ for year in years:
 for year in years:
     data[year] = data[year].reset_index().rename(columns={'index': 'id'})
     print(f"{year}: {data[year][['year', 'id']].duplicated().sum()}")
+    #no duplicates
 
 
 #########################################################################
@@ -142,6 +143,7 @@ shapefile_path = os.path.join(target_directory, "NDS_Landesflaeche.shp")
 land = gpd.read_file(shapefile_path)
 print(land.head())
 land.info()
+land.crs
 
 # %% join land to data for each year to remove fields outside of land boundary
 for year in years:
@@ -152,7 +154,7 @@ for year in years:
     
 # %% just to be sure, we check for duplicates after joining land
 for year in years:
-    print(f"{year}: {data[year][['year', 'id']].duplicated().sum()}")
+    print(f"{year}: {data[year][['year', 'id']].duplicated().sum()}") # no duplicates created
 
 # %% if all looks good and there are no duplicates, we drop id and proceed with appending
 for year in years:
@@ -200,7 +202,7 @@ all_years.head()
 
 # %% Save to pickle
 all_years.to_pickle('data/interim/data_withmetrics.pkl')
-# %% save o parquet
+# %% save to parquet
 all_years.to_parquet('data/interim/data_withmetrics.parquet')
 
 #########################################################################
@@ -216,7 +218,7 @@ landkreise.info()
 # %%
 # Check the current CRS
 print(f"Original CRS: {landkreise.crs}")
-# Reproject to WGS84
+# %% Reproject to WGS84
 if landkreise.crs != "EPSG:4326":
     regions = landkreise.to_crs("EPSG:4326")
 
@@ -248,7 +250,7 @@ allyears_landkreise.isnull().any(axis=1).sum() #0
 # %% Check for duplicates in the 'identifier' column
 duplicates = allyears_landkreise.duplicated('id')
 # Print the number of duplicates
-print(duplicates.sum())
+print(duplicates.sum()) #78053
 
 #%% if there are duplicates, drop them
 # --- Create a sample with all double assigned polygons from allyears_landkreise, which are 
@@ -281,7 +283,29 @@ allyears_districts.info()
 
 #%%
 # --- Only keep needed columns
-#allyears_districts = allyears_districts.drop(columns=['id', index_right', 'LK', 'intersection'])
+allyears_districts = allyears_districts.drop(columns=['id', 'index_right', 'LK', 'intersection'])
+
+
+# %% Plot landkreise "Küstenmeer Region Lüneburg" and "Küstenmeer Region Weser-Ems"
+landkreise_kunst = landkreise[(landkreise['LANDKREIS'] == "Küstenmeer Region Lüneburg") | (landkreise['LANDKREIS'] == "Küstenmeer Region Weser-Ems")]
+fig, ax = plt.subplots(figsize=(10, 10))
+landkreise_kunst.plot(ax=ax)
+ax.set_title('Landkreise: Küstenmeer Region Lüneburg & Weser-Ems')
+plt.show()
+
+# %% See fields belonging to "Küstenmeer Region Lüneburg" or "Küstenmeer Region Weser-Ems" in the LANDKREIS column
+rows = allyears_districts[allyears_districts['LANDKREIS'].str.contains('Küstenmeer Region Lüneburg|Küstenmeer Region Weser-Ems', na=False)]
+# Both equal 841 rows but Küstenmeer Region Lüneburg only has 84 rows in the dataset
+yearly_counts = rows.groupby(['year', 'LANDKREIS']).size().reset_index(name='count')
+# Convert to DataFrame and save to csv
+df = yearly_counts
+df.to_csv('reports/statistics/kunstenmeer_yearly_counts.csv', index=False)
+# Save the filtered rows as a new DataFrame
+kunstenmeer_df = rows.copy()
+# Save the GeoDataFrame to a Shapefile
+kunstenmeer_gdf = gpd.GeoDataFrame(kunstenmeer_df, geometry='geometry')
+kunstenmeer_gdf.to_file('reports/gdf_files/kunstenmeer_fields/kunstenmeer_fields.shp', driver='ESRI Shapefile')
+kunstenmeer_gdf.plot()
 
 
 #########################################################################
@@ -295,13 +319,23 @@ grid.info()
 grid.crs
 # %%
 grid=grid.to_crs(allyears_districts.crs)
-# %% Save reprojected grid to shapefile for visual inspection in e.g., ArcGIS
-#grid.to_file('data/interim/eeagrid_25832/eeagrid_25832.shp')
-#%%
+grid.crs
 grid.head()
 
-# %% 1. Reset the index and add the old index as a new column 'id' which could be used to search for duplicated entries after joining grid
+# %% maybe filter out nieder using Land. I do not think the grid generated covers all of Nieder
+#gridd = grid.reset_index().rename(columns={'index': 'id'})
+#grid_nieder = gpd.sjoin(gridd, land, how='inner', predicate='intersects')
+# %% Check for duplicates in the 'identifier' column
+#dupli = grid_nieder.duplicated('id')
+# Print the number of duplicates
+#print(dupli.sum())
+#grid_nieder = grid_nieder.drop(columns=['id', 'index_right'])
+#grid_nieder.info()
+#grid_nieder.plot()
+
+# %% Reset the index and add the old index as a new column 'id' which could be used to search for duplicated entries after joining grid
 allyears_districts = allyears_districts.reset_index().rename(columns={'index': 'id'})
+allyears_districts.info()
 
 # %% Perform a spatial join to add grid information to the allyears_districts data based on the geometry of the data.
 allyears_dgrid = gpd.sjoin(allyears_districts, grid, how='left', predicate="intersects")
@@ -310,7 +344,7 @@ allyears_dgrid.head()
 
 # %% check for instances with missing values
 missing_2 = allyears_dgrid[allyears_dgrid.isnull().any(axis=1)]
-print(missing_2.sum()) #0
+print(len(missing_2)) #0
 
 # %% Check for duplicates in the 'identifier' column
 duplicates2 = allyears_dgrid.duplicated('id')
@@ -344,15 +378,16 @@ double_assigned = double_assigned.sort_values(by='intersection').\
 
 #%%
 # --- Add the data double_assigned to the allyears_dgrid data and name it gridleveldata(gld)
-gld = pd.concat([allyears_dgrid,double_assigned])
+gld = pd.concat([allyears_dgrid, double_assigned])
+gld.info()
 
 #%%
 # --- Only keep needed columns
-#gld = gld.drop(columns=['index_right', 'EOFORIGIN', 'NOFORIGIN', 'intersection'])
+gld = gld.drop(columns=['id', 'index_right', 'EOFORIGIN', 'NOFORIGIN', 'intersection'])
     
-# %% Save file to pickle
+# %% Save file to pickle and parquet
 gld.to_pickle('data/interim/gld.pkl')
-#gld.to_file("N:/ds/priv/aladesuru/NiedersachsenData/all_years_grid/gld.shp") #save to shapefile
+gld.to_parquet('data/interim/gld.parquet')
    
 ######################################################
 
