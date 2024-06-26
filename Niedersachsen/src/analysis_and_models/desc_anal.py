@@ -33,11 +33,12 @@ column_sums.to_csv('reports/statistics/sums.csv') #save to csv
 #######################################
     # total number of grids within the geographic boundaries of the
     # study area
-print("gridcount =", gld.groupby('year')['CELLCODE'].nunique())
+print("gridcount =", gld.groupby('year')['CELLCODE', 'LANDKREIS'].nunique())
 
 # Create table of year, grid id, number of fields in grid, mean field size,
 # sd_fs, mean peri, sd_peri, mean shape index, sd_shape index.
-griddf = gld[['year', 'CELLCODE']].drop_duplicates().copy()
+griddf = gld[['year', 'CELLCODE', 'LANDKREIS']].drop_duplicates().copy()
+griddf.info()
 
 # %% Before we continue, first check if number of entries for area_m2, peri_m, shp and fract within each cellcode is thesame
 counts = gld.groupby('CELLCODE')[['area_m2', 'peri_m', 'shp_index', 'fract']].count()
@@ -47,10 +48,10 @@ different_counts
 
 # %%
 # 1. Number of fields per grid
-#fields = gld.groupby(['year', 'CELLCODE'])['area_m2'].count().reset_index()
-#fields.columns = ['year', 'CELLCODE', 'fields']
-#fields.head()
-#griddf = pd.merge(griddf, fields, on=['year', 'CELLCODE'])
+fields = gld.groupby(['year', 'CELLCODE'])['area_m2'].count().reset_index()
+fields.columns = ['year', 'CELLCODE', 'fields']
+fields.head()
+griddf = pd.merge(griddf, fields, on=['year', 'CELLCODE'])
 
 # 2. Sum of field size per grid
 fs_sum = gld.groupby(['year', 'CELLCODE'])['area_m2'].sum().reset_index()
@@ -121,7 +122,7 @@ griddf.head()
 # Calculating changes in grid level aspect values over years
 ###############################################################
 # %%
-# Create table of differences over years in each grid of number of fields in grid, mean field size and mean shape index
+# Create columns of differences over years in each grid of number of fields in grid, mean field size and mean shape index
 griddf = griddf.sort_values(['CELLCODE', 'year'])  # Ensure the data is sorted by 'CELLCODE' and 'year'
 griddf['MFSChng'] = griddf.groupby('CELLCODE')['mfs_ha'].diff()
 griddf['MFSChng'] = griddf['MFSChng'].fillna(0)
@@ -155,34 +156,39 @@ field_1.to_csv('reports/instances_with_field_1.csv')
 
 
 # %% Descriptive statistics of the grid level metrics by year
-grid_desc_stats = griddf.groupby('year')[['fields', 'mfs_ha', 'MFSChng', 'sdfs_ha', 'mperi', \
-    'sdperi', 'mean_shp', 'shp_sum', 'MSIChng', 'sd_shp', 'mean_fract', 'fract_sum', 'MfractChng', 'sd_fract']].describe()
+grid_desc_stats = griddf.groupby('year')[['fields', 'mfs_ha', 'fs_sum', 'MFSChng', 'mperi', \
+    'mean_shp', 'shp_sum', 'MSIChng', 'mean_fract', 'fract_sum', 'MfractChng']].describe()
 # drop 25%, 50% and 75% columns for each metric
-grid_desc_stats.to_csv('reports/statistics/grid_desc_stats.csv') 
-#save to csv
-grid_sums = griddf.groupby('year')[['fields', 'mfs_ha', 'sdfs_ha', 'mperi', \
-    'sdperi', 'mean_shp', 'shp_sum', 'sd_shp', 'mean_fract', 'fract_sum', 'sd_fract']].sum()
-grid_sums.to_csv('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen/reports/statistics/gridsums.csv') #save to csv
+grid_desc_stats.to_csv('reports/statistics/grid/grid_desc_stats.csv') 
+# save to csv
+grid_sums = griddf.groupby('year')[['fields', 'mfs_ha', 'fs_sum', 'MFSChng', 'mperi', \
+    'mean_shp', 'shp_sum', 'MSIChng', 'mean_fract', 'fract_sum', 'MfractChng']].sum()
+grid_sums.to_csv('reports/statistics/grid/gridsums.csv') #save to csv
 
 
 # %% ########################################
-# Load Germany grid to obtain the grid geometry
-grid = gpd.read_file('data/interim/eeagrid_25832')
-grid.plot()
-grid.info()
-grid.crs
+# Load Germany grid_landkreise to obtain the geometry
+# %% Load pickle file
+with open('data/interim/grid_landkreise.pkl', 'rb') as f:
+    geom = pickle.load(f)
+geom.info()    
+geom.crs
 
-# Join grid to griddf using cellcode
-griddf = griddf.merge(grid, on='CELLCODE')
-griddf.info()
-griddf.head()
+# %% Join grid to griddf using cellcode
+gridgdf = griddf.merge(geom, on='CELLCODE')
+gridgdf.info()
+gridgdf.head()
 
 # Convert the DataFrame to a GeoDataFrame
-griddf = gpd.GeoDataFrame(griddf, geometry='geometry')
+gridgdf = gpd.GeoDataFrame(gridgdf, geometry='geometry')
+
+#%% Dropping the 'LANDKREIS_y' column and rename LANDKREIS_x
+gridgdf.drop(columns=['LANDKREIS_y'], inplace=True)
+gridgdf.rename(columns={'LANDKREIS_x': 'LANDKREIS'}, inplace=True)
 
 # %% Save to csv and pkl
 #griddf.to_csv('data/interim/griddf.csv')
-griddf.to_pickle('data/interim/griddf.pkl')
+gridgdf.to_pickle('data/interim/gridgdf.pkl')
 
 # Use line plot with shaded area to show the sd of each metric across grids
 # over years.

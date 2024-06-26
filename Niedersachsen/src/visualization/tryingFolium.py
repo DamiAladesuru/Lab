@@ -7,6 +7,15 @@ import geopandas as gpd
 from folium import Choropleth, Circle, Marker 
 from folium.plugins import HeatMap, MarkerCluster
 
+#  %%
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+import xarray as xr
+import pandas as pd
+import geopandas as gp
+import geoparquet as gpq
+
 # %% Set the current working directory
 os.chdir('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen')
 # Print the current working directory to verify the change
@@ -14,10 +23,10 @@ print(os.getcwd())
 
 
 # %% Load grid 
-with open('data/interim/griddf.pkl', 'rb') as f:
-    griddf = pickle.load(f)
-griddf.info()    
-griddf.head()
+with open('data/interim/gridgdf.pkl', 'rb') as f:
+    gridgdf = pickle.load(f)
+gridgdf.info()    
+gridgdf.head()
 
 # %%
 # Load Germany grid to obtain the grid geometry
@@ -27,22 +36,38 @@ grid.info()
 grid.crs
 
 
-# %% Join grid to griddf using cellcode
-griddf_ = griddf.merge(grid, on='CELLCODE')
-griddf_.info()
-griddf_.head()
+# %% Join grid to gridgdf using cellcode
+gridgdf_ = gridgdf.merge(grid, on='CELLCODE')
+gridgdf_.info()
+gridgdf_.head()
 
 # %% Convert the DataFrame to a GeoDataFrame
-griddf_ = gpd.GeoDataFrame(griddf_, geometry='geometry')
+gridgdf_ = gpd.GeoDataFrame(gridgdf_, geometry='geometry')
 
 # %%
-griddf_['centroid'] = griddf_['geometry'].apply(lambda polygon: polygon.centroid)
+gridgdf_.crs
+
+# %%
+gridgdf_= gridgdf_.to_crs('EPSG:4326')
+
+
+
+
+
+
+
+
+
+
+
+# %%
+gridgdf_['centroid'] = gridgdf_['geometry'].apply(lambda polygon: polygon.centroid)
 # %%
 # Calculate the bounds of the data
-min_lat = griddf_['centroid'].y.min()
-max_lat = griddf_['centroid'].y.max()
-min_lon = griddf_['centroid'].x.min()
-max_lon = griddf_['centroid'].x.max()
+min_lat = gridgdf_['centroid'].y.min()
+max_lat = gridgdf_['centroid'].y.max()
+min_lon = gridgdf_['centroid'].x.min()
+max_lon = gridgdf_['centroid'].x.max()
 
 # %% Calculate the center of the map
 center_lat = (min_lat + max_lat) / 2
@@ -50,19 +75,19 @@ center_lon = (min_lon + max_lon) / 2
 
 # %%
 # create new geodataframe containing only id, centroid, centroid_x and centroid_y
-base_gdf = griddf_[['CELLCODE', 'centroid']]
+base_gdf = gridgdf_[['CELLCODE', 'centroid']]
 # %%
 base_gdf.info()
 
 # %%
-#from griddf_ drop 'centroid', 'centroid_x', 'centroid_y'
-griddf_ = griddf_.drop(columns=['EOFORIGIN', 'NOFORIGIN', 'centroid'])
+#from gridgdf_ drop 'centroid', 'centroid_x', 'centroid_y'
+gridgdf_ = gridgdf_.drop(columns=['EOFORIGIN', 'NOFORIGIN', 'centroid'])
 
 # %%
-griddf_ = griddf_.reset_index().rename(columns={'index': 'id'})
+gridgdf_ = gridgdf_.reset_index().rename(columns={'index': 'id'})
 
 # %% # Identify instances where 'fields' is 1
-field_1 = griddf_[griddf_['fields'] == 1]
+field_1 = gridgdf_[gridgdf_['fields'] == 1]
 # Print the result
 print(field_1)
 # %%
@@ -76,9 +101,9 @@ m
 # %%
 # Plot a choropleth map with layes for mfs, grid and fields=1
 folium.Choropleth(
-    geo_data=griddf_,
+    geo_data=gridgdf_,
     name='Mean Field Size (ha)',
-    data=griddf_,
+    data=gridgdf_,
     columns=['id', 'mfs_ha'],
     key_on='feature.id',
     fill_color='YlOrRd',
@@ -91,7 +116,7 @@ folium.Choropleth(
     legend_name= 'Mean Field Size (ha)').add_to(m)
 
 # Add the grid to the map
-m.add_child(folium.GeoJson(griddf_, name='grid'))
+m.add_child(folium.GeoJson(gridgdf_, name='grid'))
 m.add_child(folium.GeoJson(field_1, name='fields'))
 # Add the layer control
 folium.LayerControl().add_to(m)

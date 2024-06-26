@@ -86,11 +86,11 @@ plt.ylabel('Mean Fractal Dimension (1 \< MFD \< 2)')
 plt.show()
 
 ######################################################################################################
-# %% Load griddf 
-with open('data/interim/griddf.pkl', 'rb') as f:
-    griddf = pickle.load(f)
-griddf.info()    
-griddf.head()
+# %% Load gridgdf 
+with open('data/interim/gridgdf.pkl', 'rb') as f:
+    gridgdf = pickle.load(f)
+gridgdf.info()    
+gridgdf.head()
 
 # %% 
 # Distribution of count of grids based on mean field size range 
@@ -99,10 +99,10 @@ bins = [0, 2, 4, 8, 16, 32, 64, 150, float('inf')]
 # Define the bin labels
 labels = ['<2', '2-4', '4-8', '8-16', '16-32', '32-64', '64-150', '>150']
 # Create the range column
-griddf['mfs_range'] = pd.cut(griddf['mfs_ha'], bins=bins, labels=labels)
+gridgdf['mfs_range'] = pd.cut(gridgdf['mfs_ha'], bins=bins, labels=labels)
 
-# %% Create a FacetGrid with a count plot for each year in griddf
-g = sns.FacetGrid(griddf, col="year", col_wrap=4, height=4)
+# %% Create a FacetGrid with a count plot for each year in gridgdf
+g = sns.FacetGrid(gridgdf, col="year", col_wrap=4, height=4)
 g.map(sns.countplot, "mfs_range", color='purple')
 g.set_titles("{col_name}")
 g.set_xlabels('MFS Range (ha)')
@@ -111,7 +111,7 @@ g.show()
  
 # %%
 # Create correlation plot of grid mfs_ha and mean_fract 
-sns.scatterplot(data=griddf, x='mfs_ha', y='mean_fract', color='purple')
+sns.scatterplot(data=gridgdf, x='mfs_ha', y='mean_fract', color='purple')
 # Set the plot title and labels
 plt.title('Correlation between Mean Field Size and Mean Fractal Dimension')
 plt.xlabel('Mean Field Size')
@@ -121,7 +121,7 @@ plt.show()
 
 # %%
 # Create correlation plot of grid mfs_ha and field count 
-sns.scatterplot(data=griddf, x='mfs_ha', y='fields', color='purple')
+sns.scatterplot(data=gridgdf, x='mfs_ha', y='fields', color='purple')
 # Set the plot title and labels
 plt.title('Correlation between Mean Field Size and Field Count')
 plt.xlabel('Mean Field Size')
@@ -131,7 +131,7 @@ plt.show()
 
 ######################################################################################################################
 # %% load the grid descriptive stat csv file
-griddesc = pd.read_csv('reports/statistics/grid_desc_statssum.csv') 
+griddesc = pd.read_csv('reports/statistics/grid/grid_desc_statssum.csv') 
 
 # %%
 # Create line plot of yearly mean field size
@@ -162,4 +162,19 @@ plt.show()
 # gld[gld['CELLCODE'] == '10kmE442N331'].plot() or
 # gld.loc[gld['CELLCODE'] == '10kmE442N331'].plot()
 
- 
+
+# %% visulaize grid cells with average range of field count
+contains_value = (gridgdf['fields'] == 1600).any()
+
+if contains_value:
+    print("There is at least one gridcell with 1600 field")
+else:
+    print("There is no gridcell with 1600 field.")
+
+filtered_gdf = gridgdf[gridgdf['fields'] == 1600]
+
+# %% plot fields with cellcode in filtered_gdf and year using gld data
+gld[(gld['CELLCODE'] == '10kmE429N329') & (gld['year'] == 2021)].plot()
+gld[(gld['CELLCODE'] == '10kmE429N329') & (gld['year'] == 2022)].plot()
+gld[(gld['CELLCODE'] == '10kmE438N323') & (gld['year'] == 2015)].plot()
+

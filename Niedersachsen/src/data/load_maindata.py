@@ -1,6 +1,7 @@
 # %%
 import geopandas as gpd
 import shapely as sh
+from shapely import wkb
 from shapely.geometry import Polygon
 import fiona
 import pyogrio
@@ -128,15 +129,15 @@ for year in years:
 #########################################################################
 # %% Extract the ZIP file containing the administrative shapefiles
 # Path to the ZIP file
-zip_path = 'C:/Users/aladesuru/Downloads/verwaltungseinheiten.zip'
+#zip_path = 'C:/Users/aladesuru/Downloads/verwaltungseinheiten.zip'
 # Target directory where files will be extracted
-target_directory = 'data/raw/verwaltungseinheiten'
+#target_directory = 'data/raw/verwaltungseinheiten'
 # Create the target directory if it doesn't exist
-if not os.path.exists(target_directory):
-    os.makedirs(target_directory)
+#if not os.path.exists(target_directory):
+   # os.makedirs(target_directory)
 # Open the ZIP file and extract its contents
-with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-    zip_ref.extractall(target_directory)
+#with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+    #zip_ref.extractall(target_directory)
 
 # %% Load Land boundary 
 shapefile_path = os.path.join(target_directory, "NDS_Landesflaeche.shp")
@@ -200,27 +201,75 @@ all_years['fract'] = all_years.apply(lambda row: fractaldimension(row['area_m2']
 all_years.head()
 
 
-# %% Save to pickle
+# %% Save to pickle and parquet
 all_years.to_pickle('data/interim/data_withmetrics.pkl')
-# %% save to parquet
 all_years.to_parquet('data/interim/data_withmetrics.parquet')
 
+# %% Load the pickle file
+all_years = pd.read_pickle('data/interim/data_withmetrics.pkl')
+all_years.crs
+
+
 #########################################################################
-#join regional information to data
+#join regional information to grid
 #########################################################################
 # %% 1. Reset the index and add the old index as a new column 'id' which could be used to search for duplicated entries after joining districts
 all_years = all_years.reset_index().rename(columns={'index': 'id'})
 
 # %% Load Landkreis boundaries 
-landkreise = gpd.read_file(os.path.join(target_directory, "NDS_Landkreise.shp"))
+#landkreise = gpd.read_file(os.path.join(target_directory, "NDS_Landkreise.shp")) or
+landkreise = gpd.read_file('data/raw/verwaltungseinheiten/NDS_Landkreise.shp')
 landkreise.info()
 
+#%% Load Germany grid, join to main data and remore duplicates using largest intersection
+grid = gpd.read_file('data/raw/eea_10_km_eea-ref-grid-de_p_2013_v02_r00')
+grid.plot()
+grid.info()
+grid.crs
+# %%
+grid=grid.to_crs(all_years.crs)
+grid.crs
+grid.head()
+
+# %%
+# create index for grid_landkreise
+grid_ = grid.reset_index().rename(columns={'index': 'id'})
+grid_.info()
+
+# %% use land to filter out grids that are outside of land boundary
+grid_landkreise = gpd.sjoin(grid_, landkreise, how='inner', predicate='intersects')
+grid_landkreise.info()
+grid_landkreise.plot()
+
+# %%
+# Calculate total bounding box for land
+land_total_bounds = land.total_bounds  # [minx, miny, maxx, maxy]
+print(land_total_bounds)
+
+# %% Calculate total bounding box for grid_land
+grid_landkreise_total_bounds = grid_landkreise.total_bounds  # [minx, miny, maxx, maxy]
+print(grid_landkreise_total_bounds)
+
+# %%
+# Compare bounding boxes
+# Check if land's minx >= grid_land's minx and land's miny >= grid_land's miny
+# and land's maxx <= grid_land's maxx and land's maxy <= grid_land's maxy
+if (land_total_bounds[0] >= grid_landkreise_total_bounds[0] and
+    land_total_bounds[1] >= grid_landkreise_total_bounds[1] and
+    land_total_bounds[2] <= grid_landkreise_total_bounds[2] and
+    land_total_bounds[3] <= grid_landkreise_total_bounds[3]):
+    print("All of land is within grid_land.")
+else:
+    print("Some parts of land are not within grid_land.")
+
+##############################
+# maybe plot this regional map
 # %%
 # Check the current CRS
-print(f"Original CRS: {landkreise.crs}")
+print(f"Original CRS: {grid_landkreise.crs}")
 # %% Reproject to WGS84
-if landkreise.crs != "EPSG:4326":
-    regions = landkreise.to_crs("EPSG:4326")
+if grid_landkreise.crs != "EPSG:4326":
+    regions = grid_landkreise.to_crs("EPSG:4326")
 
 # Plot the regions map
 fig, ax = plt.subplots(figsize=(10, 10))
@@ -237,9 +286,61 @@ plt.ylabel('Latitude')
 plt.tight_layout()
 # Show the plot
 plt.show()
+##############################
 
+# %%
+#count unique cellcodes in grid_landkreise
+unique_cellcodes = grid_landkreise['CELLCODE'].nunique()
+print(unique_cellcodes) # 602
+
+#check for duplicated grids in grid_landkreise
+duplicates = grid_landkreise.duplicated('id')
+# Print the number of duplicates
+print(duplicates.sum()) #455
+
+
+#%% --- Create a sample with all double assigned grids which are crossing landkreis borders 
+# and, therefore, are assigned to more than one  landkreise in grid_landkreise.
+double_assigned = grid_landkreise[grid_landkreise.index.isin(grid_landkreise[grid_landkreise.index.duplicated()].index)]
+
+#%%
+# - Delete all double assigned from grid_landkreise
+grid_landkreise = grid_landkreise[~grid_landkreise.index.isin(grid_landkreise[grid_landkreise.index.duplicated()].index)]
+
+
+#%%
+# --- Estimate the largest intersection for each duplicated cellcode with landkreise in the
+#     double assigned sample. Use the unit of ha
+double_assigned['intersection'] = [
+    a.intersection(landkreise[landkreise.index == b].\
+        geometry.values[0]).area/10000 for a, b in zip(
+        double_assigned.geometry.values, double_assigned.index_right
+    )]
+
+#%%
+# --- Sort by intersection area and keep only the  row with the largest intersection
+double_assigned = double_assigned.sort_values(by='intersection').\
+    groupby('id').last().reset_index()
+    
+#%% --- Add the data double_assigned to the grid_landkreise data
+grid_landkreise = pd.concat([grid_landkreise, double_assigned])
+
+#%%
+grid_landkreise.info()
+
+# %%
+# keep only needed columns
+grid_landkreise = grid_landkreise.drop(columns=['id', 'EOFORIGIN', 'NOFORIGIN', 'index_right', 'LK', 'intersection'])
+
+# %% save to pickle
+grid_landkreise.to_pickle('data/interim/grid_landkreise.pkl')
+
+
+#########################################################################
+#join regional_grid information to data
+#########################################################################
 # %% Perform a spatial join to add landkreis information to the all_years data based on the geometry of the data.
-allyears_landkreise = gpd.sjoin(all_years, landkreise, how='left', predicate="intersects")
+allyears_landkreise = gpd.sjoin(all_years, grid_landkreise, how='left', predicate="intersects")
 allyears_landkreise.info()
 allyears_landkreise.head()
 
@@ -250,13 +351,13 @@ allyears_landkreise.isnull().any(axis=1).sum() #0
 # %% Check for duplicates in the 'identifier' column
 duplicates = allyears_landkreise.duplicated('id')
 # Print the number of duplicates
-print(duplicates.sum()) #78053
+print(duplicates.sum()) #486601
 
 #%% if there are duplicates, drop them
 # --- Create a sample with all double assigned polygons from allyears_landkreise, which are 
 #     crossing landkreis borders and, therefore, are assigned to more than one
 #     landkreise.
-double_landkreis = allyears_landkreise[allyears_landkreise.index.isin(allyears_landkreise[allyears_landkreise.index.duplicated()].index)]
+double = allyears_landkreise[allyears_landkreise.index.isin(allyears_landkreise[allyears_landkreise.index.duplicated()].index)]
 
 #%%
 # - Delete all double assigned polygons from data
@@ -265,26 +366,33 @@ allyears_landkreise = allyears_landkreise[~allyears_landkreise.index.isin(allyea
 #%%
 # --- Estimate the largest intersection for each polygon with a duplicated landkreise in the
 #     double landkreis sample. Use the unit of ha.
-double_landkreis['intersection'] = [
-    a.intersection(landkreise[landkreise.index == b].\
+double['intersection'] = [
+    a.intersection(grid_landkreise[grid_landkreise.index == b].\
       geometry.values[0]).area/10000 for a, b in zip(
-       double_landkreis.geometry.values, double_landkreis.index_right
+       double.geometry.values, double.index_right
     )]
 
 #%%
 # --- Sort by intersection area and keep only the  row with the largest intersection.
-double_landkreis = double_landkreis.sort_values(by='intersection').\
+double = double.sort_values(by='intersection').\
          groupby('id').last().reset_index()
 
 #%%
 # --- Add the data double_landkreis to the allyears_landkreise data and name it allyears_districts
-allyears_districts = pd.concat([allyears_landkreise,double_landkreis])
+allyears_districts = pd.concat([allyears_landkreise,double])
 allyears_districts.info()
 
 #%%
 # --- Only keep needed columns
-allyears_districts = allyears_districts.drop(columns=['id', 'index_right', 'LK', 'intersection'])
+gld = allyears_districts.drop(columns=['id', 'index_right', 'intersection'])
+gld.reset_index(drop=True, inplace=True)
+gld.info()
 
+
+# %% Save file to pickle and parquet
+gld.to_pickle('data/interim/gld.pkl')
+gld.to_parquet('data/interim/gld.parquet')
+##############################################################################
 
 # %% Plot landkreise "Küstenmeer Region Lüneburg" and "Küstenmeer Region Weser-Ems"
 landkreise_kunst = landkreise[(landkreise['LANDKREIS'] == "Küstenmeer Region Lüneburg") | (landkreise['LANDKREIS'] == "Küstenmeer Region Weser-Ems")]
@@ -308,87 +416,6 @@ kunstenmeer_gdf.to_file('reports/gdf_files/kunstenmeer_fields/kunstenmeer_fields
 kunstenmeer_gdf.plot()
 
 
-#########################################################################
-#join grid to data
-#########################################################################
-# %% ########################################
-# Load Germany grid, join to main data and remore duplicates using largest intersection
-grid = gpd.read_file('data/raw/eea_10_km_eea-ref-grid-de_p_2013_v02_r00')
-grid.plot()
-grid.info()
-grid.crs
-# %%
-grid=grid.to_crs(allyears_districts.crs)
-grid.crs
-grid.head()
-
-# %% maybe filter out nieder using Land. I do not think the grid generated covers all of Nieder
-#gridd = grid.reset_index().rename(columns={'index': 'id'})
-#grid_nieder = gpd.sjoin(gridd, land, how='inner', predicate='intersects')
-# %% Check for duplicates in the 'identifier' column
-#dupli = grid_nieder.duplicated('id')
-# Print the number of duplicates
-#print(dupli.sum())
-#grid_nieder = grid_nieder.drop(columns=['id', 'index_right'])
-#grid_nieder.info()
-#grid_nieder.plot()
-
-# %% Reset the index and add the old index as a new column 'id' which could be used to search for duplicated entries after joining grid
-allyears_districts = allyears_districts.reset_index().rename(columns={'index': 'id'})
-allyears_districts.info()
-
-# %% Perform a spatial join to add grid information to the allyears_districts data based on the geometry of the data.
-allyears_dgrid = gpd.sjoin(allyears_districts, grid, how='left', predicate="intersects")
-allyears_dgrid.info()
-allyears_dgrid.head()
-
-# %% check for instances with missing values
-missing_2 = allyears_dgrid[allyears_dgrid.isnull().any(axis=1)]
-print(len(missing_2)) #0
-
-# %% Check for duplicates in the 'identifier' column
-duplicates2 = allyears_dgrid.duplicated('id')
-# Print the number of duplicates
-print(duplicates2.sum())
-
-#%%
-# --- Create a sample with all double assigned polygons from allyears_grid, which are 
-#     crossing grid borders and, therefore, are assigned to more than one
-#     grid.
-double_assigned = allyears_dgrid[allyears_dgrid.index.isin(allyears_dgrid[allyears_dgrid.index.duplicated()].index)]
-
-#%%
-# - Delete all double assigned polygons, i.d. polygons that are assigned to more
-#   than one grid
-allyears_dgrid = allyears_dgrid[~allyears_dgrid.index.isin(allyears_dgrid[allyears_dgrid.index.duplicated()].index)]
-
-#%%
-# --- Estimate the largest intersection for each polygon with a grid in the
-#     double assigned sample. Use the unit of ha.
-double_assigned['intersection'] = [
-    a.intersection(grid[grid.index == b].\
-      geometry.values[0]).area/10000 for a, b in zip(
-       double_assigned.geometry.values, double_assigned.index_right
-    )]
-
-#%%
-# --- Sort by intersection area and keep only the  row with the largest intersection.
-double_assigned = double_assigned.sort_values(by='intersection').\
-         groupby('id').last().reset_index()
-
-#%%
-# --- Add the data double_assigned to the allyears_dgrid data and name it gridleveldata(gld)
-gld = pd.concat([allyears_dgrid, double_assigned])
-gld.info()
-
-#%%
-# --- Only keep needed columns
-gld = gld.drop(columns=['id', 'index_right', 'EOFORIGIN', 'NOFORIGIN', 'intersection'])
-    
-# %% Save file to pickle and parquet
-gld.to_pickle('data/interim/gld.pkl')
-gld.to_parquet('data/interim/gld.parquet')
-   
 ######################################################
 
 # %%
@@ -441,4 +468,5 @@ plt.show()
 gld[gld['year'] == 2023].plot(figsize=(10, 6))
 plt.title('Geospatial Distribution in 2023')
 plt.show()
-# %%
+
+
