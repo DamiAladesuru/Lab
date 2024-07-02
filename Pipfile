@@ -4,6 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+fiona = "*"
 shap = "*"
 pandas = "*"
 matplotlib = "*"
@@ -19,6 +20,7 @@ mplleaflet = "*"
 shapely = "*"
 geopy = "*"
 rasterio = "*"
+
 
 [dev-packages]
 

@@ -178,3 +178,66 @@ gld[(gld['CELLCODE'] == '10kmE429N329') & (gld['year'] == 2021)].plot()
 gld[(gld['CELLCODE'] == '10kmE429N329') & (gld['year'] == 2022)].plot()
 gld[(gld['CELLCODE'] == '10kmE438N323') & (gld['year'] == 2015)].plot()
 
+# %% see data columns for grid cell E425N331
+E425N331 = gridgdf[gridgdf['CELLCODE'] == '10kmE425N331']
+
+# %%
+# Calculate the 475th percentiles of 'mfs_ha' for each CELLCODE
+percentile_75 = gridgdf['mfs_ha'].quantile(0.75)
+
+# Filter CELLCODEs based on 'area_m2' being within the 40th and 75th percentiles
+filtered_cellcodes = gridgdf[(gridgdf['mfs_ha'] >= percentile_75)]['CELLCODE'].unique()
+
+# Apply this filter to the DataFrame to get only the rows with the filtered CELLCODEs
+filtered = gridgdf[gridgdf['CELLCODE'].isin(filtered_cellcodes)]
+
+
+
+# %%
+# Assuming 'df' is your DataFrame, 'x' is the column of interest, and 'y' is the grouping column
+# First, ensure the DataFrame is sorted by 'y' and then by 'year'
+filtered_sorted = filtered.sort_values(by=['CELLCODE', 'year'])
+
+# Adjusted function to apply to each group for multiple columns
+def determine_change_multiple(group, columns):
+    for col in columns:
+        prev_value = group[col].shift(1)  # Shift column up to compare with the previous row
+        conditions = [
+            group[col] > prev_value,  # Value increased compared to the previous year
+            group[col] < prev_value   # Value decreased compared to the previous year
+        ]
+        choices = ['increased', 'decreased']
+        change_col_name = f'{col}_change'  # Dynamic column name for each column's change
+        group[change_col_name] = np.select(conditions, choices, default=np.nan)  # Assign 'increased', 'decreased', or NaN
+    return group
+
+# List of columns to apply the change detection
+columns_to_check = ['mfs_ha', 'mean_shp', 'mean_fract']  # Add your column names here
+
+# Apply the function to each group of 'CELLCODE'
+filtered_with_changes = filtered_sorted.groupby('CELLCODE').apply(lambda group: determine_change_multiple(group, columns_to_check))
+
+filtered_with_changes.head(50).to_csv('reports/filtered_with_changes.csv')
+# %%
+# Assuming 'df' is your DataFrame, 'x' is the column of interest, and 'y' is the grouping column
+# First, ensure the DataFrame is sorted by 'y' and then by 'year'
+filtered_sorted = gridgdf.sort_values(by=['CELLCODE', 'year'])
+
+# Adjusted function to apply to each group for multiple columns
+def determine_change_multiple(group, columns):
+    for col in columns:
+        prev_value = group[col].shift(1)  # Shift column up to compare with the previous row
+        conditions = [
+            group[col] > prev_value,  # Value increased compared to the previous year
+            group[col] < prev_value   # Value decreased compared to the previous year
+        ]
+        choices = ['increased', 'decreased']
+        change_col_name = f'{col}_change'  # Dynamic column name for each column's change
+        group[change_col_name] = np.select(conditions, choices, default=np.nan)  # Assign 'increased', 'decreased', or NaN
+    return group
+
+# List of columns to apply the change detection
+columns_to_check = ['mfs_ha', 'mean_shp', 'mean_fract']  # Add your column names here
+
+# Apply the function to each group of 'CELLCODE'
+filtered_with_changes = filtered_sorted.groupby('CELLCODE').apply(lambda group: determine_change_multiple(group, columns_to_check))
