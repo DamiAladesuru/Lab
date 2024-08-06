@@ -1,6 +1,14 @@
 # %% 
 import pandas as pd
 ###################################################################
+# attribute .columns to see just the column names in a dataframe,
+# attribute .shape to just see the number of rows and columns.
+# %%
+# Filter data for the year 2016
+gld16 = gld[gld['year'] == 2016]
+
+# Show the plot
+gld16.plot()
 # Visualizing
  # %% to obtain x and y limits for sample year data
 ax = df[df['year'] == 2023].plot(figsize=(10, 6))
@@ -16,3 +24,32 @@ ax.set_xlim(x_min, x_max)
 ax.set_ylim(y_min, y_max)
 
 plt.show()
+
+# Add a shapefile layer to leaflet
+shapefile_path = 'path/to/shapefile.shp'
+gdf = gpd.read_file(shapefile_path)
+geo_json = GeoJSON(data=gdf.__geo_interface__, name='Shapefile Layer')
+m.add_layer(geo_json)
+
+# incase I want to calculate percentage change
+df['mfs_pct_change'] = df.groupby('CELLCODE')['mfs'].pct_change()
+
+# %% to transform coordinates e.g., to EPSG:4326 for leaftlet
+from pyproj import Transformer
+
+# Create a transformer
+transformer = Transformer.from_crs("EPSG:25832", "EPSG:4326")
+
+# Original coordinates
+x, y = 438000.1, 5865999.9
+
+# Transform the coordinates
+lon, lat = transformer.transform(x, y)
+print(lon, lat)
+
+# to fin the max, min value in a column
+df['column'].max()
+df['column'].min()
+
+# to save only the selected data columns to csv
+df[['Column1', 'Column2']].to_csv('path.csv', index=False)

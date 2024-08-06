@@ -5,9 +5,10 @@ import pandas as pd
 import os
 import math as m
 
-# %% Change the current working directory
-os.chdir('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen')
-# Print the current working directory to verify the change
+
+# %% Set the current working directory
+os.chdir('C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen')
+# Print the current working directory to verify
 print(os.getcwd())
 
 # %% Load pickle file
@@ -22,18 +23,22 @@ gld.head()
     # total number of fields per year
     # min, max and mean value of field size, peri and shape index per year across landscape. We could have a box plot of these values across years.
 gld.info()
-desc_stats = gld.groupby('year')[['area_m2', 'area_ha', 'peri_m', 'shp_index', 'fract']].describe()
+desc_stats = gld.groupby('year')[['area_ha', 'peri_m', 'par', 'shp_index', 'fract']].describe()
 # Calculate the sum of each column
-column_sums = gld.groupby('year')[['area_m2', 'area_ha', 'peri_m', 'shp_index', 'fract']].sum()
-desc_stats.to_csv('reports/statistics/ldscp_desc.csv') #save to csv
-column_sums.to_csv('reports/statistics/sums.csv') #save to csv
+column_sums = gld.groupby('year')[['area_ha', 'peri_m', 'par', 'shp_index', 'fract']].sum()
+# Calculate the median of each column
+column_medians = gld.groupby('year')[['area_ha', 'peri_m', 'par', 'shp_index', 'fract']].sum()
+ #save to csv
+desc_stats.to_csv('reports/statistics/ldscp_desc.csv')
+column_sums.to_csv('reports/statistics/sums.csv')
+column_medians.to_csv('reports/statistics/medians.csv')
 
 # %% #######################################
 # Grid level descriptive statistics
 #######################################
-    # total number of grids within the geographic boundaries of the
+    # total number of grids and regions within the geographic boundaries of the
     # study area
-print("gridcount =", gld.groupby('year')['CELLCODE', 'LANDKREIS'].nunique())
+print("gridcount =", gld.groupby('year')[['CELLCODE', 'LANDKREIS']].nunique())
 
 # Create table of year, grid id, number of fields in grid, mean field size,
 # sd_fs, mean peri, sd_peri, mean shape index, sd_shape index.
@@ -41,72 +46,113 @@ griddf = gld[['year', 'CELLCODE', 'LANDKREIS']].drop_duplicates().copy()
 griddf.info()
 
 # %% Before we continue, first check if number of entries for area_m2, peri_m, shp and fract within each cellcode is thesame
-counts = gld.groupby('CELLCODE')[['area_m2', 'peri_m', 'shp_index', 'fract']].count()
-same_counts = (counts['area_m2'] == counts['peri_m']) & (counts['area_m2'] == counts['shp_index']) & (counts['area_m2'] == counts['fract'])
+counts = gld.groupby('CELLCODE')[['area_ha', 'peri_m', 'par', 'shp_index', 'fract']].count()
+same_counts = (counts['area_ha'] == counts['peri_m'])\
+    & (counts['area_ha'] == counts['par'])\
+        & (counts['area_ha'] == counts['shp_index']) & (counts['area_ha'] == counts['fract'])
 different_counts = counts[~same_counts]
 different_counts
 
 # %%
 # Number of fields per grid
-fields = gld.groupby(['year', 'CELLCODE'])['area_m2'].count().reset_index()
+fields = gld.groupby(['year', 'CELLCODE'])['geometry'].count().reset_index()
 fields.columns = ['year', 'CELLCODE', 'fields']
-fields.head()
 griddf = pd.merge(griddf, fields, on=['year', 'CELLCODE'])
 
 # Sum of field size per grid
-fs_sum = gld.groupby(['year', 'CELLCODE'])['area_m2'].sum().reset_index()
-fs_sum.columns = ['year', 'CELLCODE', 'fs_sum']
-fs_sum.head()
-griddf = pd.merge(griddf, fs_sum, on=['year', 'CELLCODE'])
+fsha_sum = gld.groupby(['year', 'CELLCODE'])['area_ha'].sum().reset_index()
+fsha_sum.columns = ['year', 'CELLCODE', 'fsha_sum']
+griddf = pd.merge(griddf, fsha_sum, on=['year', 'CELLCODE'])
 
-# Mean field size in the grid
-griddf['mfs_ha'] = (griddf['fs_sum'] / griddf['fields'])*(1/10000)
+# Mean field size per grid
+griddf['mfs_ha'] = (griddf['fsha_sum'] / griddf['fields'])
 
-# Standard deviation of field size in the grid (ha)
-sdfs_ha = gld.groupby(['year', 'CELLCODE'])['area_m2'].std()*(1/10000)
-sdfs_ha = sdfs_ha.reset_index()
+# Median field size per grid
+griddf['midfs_ha'] = gld.groupby(['year', 'CELLCODE'])['area_ha'].median().reset_index()['area_ha']
+
+# Standard deviation of field size per grid (ha)
+sdfs_ha = gld.groupby(['year', 'CELLCODE'])['area_ha'].std().reset_index()
 sdfs_ha.columns = ['year', 'CELLCODE', 'sdfs_ha']
 griddf = pd.merge(griddf, sdfs_ha, on=['year', 'CELLCODE'])
 
-# Since thesame, then we can use fields column as number of fields in the grid
 # Sum of field peri per grid
 peri_sum = gld.groupby(['year', 'CELLCODE'])['peri_m'].sum().reset_index()
 peri_sum.columns = ['year', 'CELLCODE', 'peri_sum']
-peri_sum.head()
 griddf = pd.merge(griddf, peri_sum, on=['year', 'CELLCODE'])
 
-# Mean perimeter in the grids
+# Mean perimeter per grids
 griddf['mperi'] = (griddf['peri_sum'] / griddf['fields'])
 
-# Standard deviation of perimeter in the grids
-sdperi = gld.groupby(['year', 'CELLCODE'])['peri_m'].std()
-sdperi = sdperi.reset_index()
+# Median perimeter per grid
+griddf['midperi'] = gld.groupby(['year', 'CELLCODE'])['peri_m'].median().reset_index()['peri_m']
+
+# Standard deviation of perimeter per grids
+sdperi = gld.groupby(['year', 'CELLCODE'])['peri_m'].std().reset_index()
 sdperi.columns = ['year', 'CELLCODE', 'sdperi']
 griddf = pd.merge(griddf, sdperi, on=['year', 'CELLCODE'])
 
 ######################################################################
 #Shape
 ######################################################################
-# additional metrics
-####################
-# Perimeter to area ratio
+# simple perimeter to area ratio
+# Sum of Par per grid
+par_sum = gld.groupby(['year', 'CELLCODE'])['par'].sum().reset_index()
+par_sum.columns = ['year', 'CELLCODE', 'par_sum']
+griddf = pd.merge(griddf, par_sum, on=['year', 'CELLCODE'])
 
+# Mean Par per grid
+griddf['mean_par'] = (griddf['par_sum'] / griddf['fields'])
 
+# p/a ratio of grid as sum of peri divided by sum of area per grid
+#griddf['grid_par'] = (griddf['peri_sum'] / griddf['fsha_sum']) #compare to mean par
 
+# Median par per grid
+griddf['midpar'] = gld.groupby(['year', 'CELLCODE'])['par'].median().reset_index()['par']
 
+# %% Standard deviation of par per grids
+sdpar = gld.groupby(['year', 'CELLCODE'])['par'].std().reset_index()
+sdpar.columns = ['year', 'CELLCODE', 'sdpar']
+griddf = pd.merge(griddf, sdpar, on=['year', 'CELLCODE'])
 
+# corrected perimeter to area ratio
+# Sum of cpar per grid
+cpar_sum = gld.groupby(['year', 'CELLCODE'])['cpar'].sum().reset_index()
+cpar_sum.columns = ['year', 'CELLCODE', 'cpar_sum']
+griddf = pd.merge(griddf, cpar_sum, on=['year', 'CELLCODE'])
+
+# p/a ratio of grid as sum of peri divided by sum of area per grid
+#def gridcpa(p, a):
+    #GCPA = (0.282*p)/(m.sqrt(a))
+    #return GCPA
+#griddf['grid_cpar'] = griddf.apply(lambda row: gridcpa(row['peri_sum'], row['fsha_sum']), axis=1)
+#compare to mean cpar and grid_par
+
+# Mean cpar per grid
+griddf['mean_cpar'] = (griddf['cpar_sum'] / griddf['fields'])
+
+# Median cpar per grid
+griddf['midcpar'] = gld.groupby(['year', 'CELLCODE'])['cpar'].median().reset_index()['cpar']
+
+# Standard deviation of cpar per grids
+sd_cpar = gld.groupby(['year', 'CELLCODE'])['cpar'].std().reset_index()
+sd_cpar.columns = ['year', 'CELLCODE', 'sd_cpar']
+griddf = pd.merge(griddf, sd_cpar, on=['year', 'CELLCODE'])
+
+# shape index
 # Sum of shape index per grid
 shp_sum = gld.groupby(['year', 'CELLCODE'])['shp_index'].sum().reset_index()
 shp_sum.columns = ['year', 'CELLCODE', 'shp_sum']
-shp_sum.head()
 griddf = pd.merge(griddf, shp_sum, on=['year', 'CELLCODE'])
 
-# Mean shape index in the grids
+# Mean shape index per grid
 mean_shp = gld.groupby(['year', 'CELLCODE'])['shp_index'].mean().reset_index()
 mean_shp.columns = ['year', 'CELLCODE', 'mean_shp']
 griddf = pd.merge(griddf, mean_shp, on=['year', 'CELLCODE'])
 
-# Standard deviation of shape index in the grids
+# Median shape index per grid
+griddf['midshp'] = gld.groupby(['year', 'CELLCODE'])['shp_index'].median().reset_index()['shp_index']
+
+# Standard deviation of shape index per grid
 sd_shp = gld.groupby(['year', 'CELLCODE'])['shp_index'].std().reset_index()
 sd_shp.columns = ['year', 'CELLCODE', 'sd_shp']
 griddf = pd.merge(griddf, sd_shp, on=['year', 'CELLCODE'])
@@ -117,10 +163,13 @@ fract_sum.columns = ['year', 'CELLCODE', 'fract_sum']
 fract_sum.head()
 griddf = pd.merge(griddf, fract_sum, on=['year', 'CELLCODE'])
 
-# Mean fractal dimension in the grids
+# Mean fractal dimension per grid
 mean_fract = gld.groupby(['year', 'CELLCODE'])['fract'].mean().reset_index()
 mean_fract.columns = ['year', 'CELLCODE', 'mean_fract']
 griddf = pd.merge(griddf, mean_fract, on=['year', 'CELLCODE'])
+
+# Median fractal dimension per grid
+griddf['midfract'] = gld.groupby(['year', 'CELLCODE'])['fract'].median().reset_index()['fract']
 
 # Standard deviation of fractal dimension in the grids
 sd_fract = gld.groupby(['year', 'CELLCODE'])['fract'].std().reset_index()

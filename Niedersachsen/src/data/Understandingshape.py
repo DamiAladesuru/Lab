@@ -1,4 +1,3 @@
-Understanding shape
 # %%
 import geopandas as gpd
 import pandas as pd
@@ -6,9 +5,10 @@ from shapely.geometry import Polygon
 import pickle
 import os
 
-# %% Change the current working directory
-os.chdir('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen')
-# Print the current working directory to verify the change
+
+# %% Set the current working directory
+os.chdir('C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen')
+# Print the current working directory to verify
 print(os.getcwd())
 
 # %% Load pickle file

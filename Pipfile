@@ -21,7 +21,6 @@ shapely = "*"
 geopy = "*"
 rasterio = "*"
 
-
 [dev-packages]
 
 [requires]

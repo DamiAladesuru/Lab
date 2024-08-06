@@ -11,13 +11,11 @@ import zipfile
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pickle
-######################################
-#Preprocessing
-
+import math as m
 
 # %% Set the current working directory
-os.chdir('C:/Users/aladesuru/sciebo/StormLab/Research/Damilola/DataAnalysis/Lab/Niedersachsen')
-# Print the current working directory to verify the change
+os.chdir('C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen')
+# Print the current working directory to verify
 print(os.getcwd())
 
 # %% Load data
@@ -55,6 +53,8 @@ for year in years:
 for year in years:
     print(f"{year}: {data[year].info()}")
 
+######################################
+#Preprocessing
 # %% Define the old and new names for the year column
 old_names = ['JAHR', 'ANTJAHR', 'ANTRAGSJAH']
 new_name = 'year'
@@ -131,7 +131,7 @@ for year in years:
 # Path to the ZIP file
 #zip_path = 'C:/Users/aladesuru/Downloads/verwaltungseinheiten.zip'
 # Target directory where files will be extracted
-#target_directory = 'data/raw/verwaltungseinheiten'
+target_directory = 'N:/ds/data/Niedersachsen/verwaltungseinheiten'
 # Create the target directory if it doesn't exist
 #if not os.path.exists(target_directory):
    # os.makedirs(target_directory)
@@ -140,8 +140,7 @@ for year in years:
     #zip_ref.extractall(target_directory)
 
 # %% Load Land boundary 
-shapefile_path = os.path.join(target_directory, "NDS_Landesflaeche.shp")
-land = gpd.read_file(shapefile_path)
+land = gpd.read_file(os.path.join(target_directory, "NDS_Landesflaeche.shp"))
 print(land.head())
 land.info()
 land.crs
@@ -155,7 +154,8 @@ for year in years:
     
 # %% just to be sure, we check for duplicates after joining land
 for year in years:
-    print(f"{year}: {data[year][['year', 'id']].duplicated().sum()}") # no duplicates created
+    print(f"{year}: {data[year][['year', 'id']].duplicated().sum()}") # no duplicates created based
+    # on id after joining land
 
 # %% if all looks good and there are no duplicates, we drop id and proceed with appending
 for year in years:
@@ -169,8 +169,12 @@ all_years.info()
 
 # %% Save to pickle
 all_years.to_pickle('data/interim/data.pkl')
-# %% save o parquet
-all_years.to_parquet('data/interim/data.parquet')
+
+# %% Load the pickle file
+#PS: this file contains data for all years with fields outside of land boundary removed.
+#if you are starting from here, you can load the file but also load land file from above because it is still
+#needed for further processing
+all_years = pd.read_pickle('data/interim/data.pkl')
 
 # %% check for instances with missing values
 missing_values = all_years[all_years.isnull().any(axis=1)]
@@ -185,25 +189,37 @@ all_years['area_m2'] = all_years.area
 all_years['area_ha'] = all_years['area_m2']*(1/10000)
 #2. Perimeter (m)
 all_years['peri_m'] = all_years.length
-#3. Shape index
-import math as m
-def shapeindex(a, p):
+
+# Shape indices
+#3. Simple perimeter to area ratio
+def paratio(p, a):
+    PA = p/a
+    return PA
+all_years['par'] = all_years.apply(lambda row: paratio(row['peri_m'], row['area_m2']), axis=1)
+
+#4. Corrected perimeter to area ratio
+def cparatio(p, a):
+    CPA = (0.282*p)/(m.sqrt(a))
+    return CPA
+all_years['cpar'] = all_years.apply(lambda row: cparatio(row['peri_m'], row['area_m2']), axis=1)
+
+#5. Shape index
+def shapeindex(p, a):
     SI = p/(2*m.sqrt(m.pi*a))
     return SI
-all_years['shp_index'] = all_years.apply(lambda row: shapeindex(row['area_m2'], row['peri_m']), axis=1)
+all_years['shp_index'] = all_years.apply(lambda row: shapeindex(row['peri_m'], row['area_m2']), axis=1)
 
-#4. Fractal dimension
-def fractaldimension(a, p):
+#6. Fractal dimension
+def fractaldimension(p, a):
     FD = (2*m.log(p))/m.log(a)
     return FD
-all_years['fract'] = all_years.apply(lambda row: fractaldimension(row['area_m2'], row['peri_m']), axis=1)
+all_years['fract'] = all_years.apply(lambda row: fractaldimension(row['peri_m'], row['area_m2']), axis=1)
 
 all_years.head()
 
 
-# %% Save to pickle and parquet
+# %% Save to pickle
 all_years.to_pickle('data/interim/data_withmetrics.pkl')
-all_years.to_parquet('data/interim/data_withmetrics.parquet')
 
 # %% Load the pickle file
 all_years = pd.read_pickle('data/interim/data_withmetrics.pkl')
@@ -213,30 +229,27 @@ all_years.crs
 #########################################################################
 #join regional information to grid
 #########################################################################
-# %% 1. Reset the index and add the old index as a new column 'id' which could be used to search for duplicated entries after joining districts
-all_years = all_years.reset_index().rename(columns={'index': 'id'})
-
-# %% Load Landkreis boundaries 
-#landkreise = gpd.read_file(os.path.join(target_directory, "NDS_Landkreise.shp")) or
-landkreise = gpd.read_file('data/raw/verwaltungseinheiten/NDS_Landkreise.shp')
+# %% Load Landkreis file for regional boundaries
+landkreise = gpd.read_file(os.path.join(target_directory, "NDS_Landkreise.shp"))
 landkreise.info()
 
-#%% Load Germany grid, join to main data and remore duplicates using largest intersection
+#%% Load Germany grid, join to landkreise, confirm using land that no part of land is missing
+# and remove duplicates using largest intersection
 grid = gpd.read_file('data/raw/eea_10_km_eea-ref-grid-de_p_2013_v02_r00')
 grid.plot()
 grid.info()
 grid.crs
-# %%
 grid=grid.to_crs(all_years.crs)
 grid.crs
+# %%
 grid.head()
 
 # %%
-# create index for grid_landkreise
+# create index for grid in order to create grid_landkreise
 grid_ = grid.reset_index().rename(columns={'index': 'id'})
 grid_.info()
 
-# %% use land to filter out grids that are outside of land boundary
+# %% join grid and landkreise so that landkreise boundaries filters out grids that are outside of land boundary
 grid_landkreise = gpd.sjoin(grid_, landkreise, how='inner', predicate='intersects')
 grid_landkreise.info()
 grid_landkreise.plot()
@@ -258,12 +271,12 @@ if (land_total_bounds[0] >= grid_landkreise_total_bounds[0] and
     land_total_bounds[1] >= grid_landkreise_total_bounds[1] and
     land_total_bounds[2] <= grid_landkreise_total_bounds[2] and
     land_total_bounds[3] <= grid_landkreise_total_bounds[3]):
-    print("All of land is within grid_land.")
+    print("All of land is within grid_landkr.")
 else:
-    print("Some parts of land are not within grid_land.")
+    print("Some parts of land are not within grid_landkr.")
 
 ##############################
-# maybe plot this regional map
+# maybe plot this regional map bu it is not necessary
 # %%
 # Check the current CRS
 print(f"Original CRS: {grid_landkreise.crs}")
@@ -335,11 +348,17 @@ grid_landkreise = grid_landkreise.drop(columns=['id', 'EOFORIGIN', 'NOFORIGIN', 
 # %% save to pickle
 grid_landkreise.to_pickle('data/interim/grid_landkreise.pkl')
 
+# %% Load from pickle file
+grid_landkreise = pd.read_pickle('data/interim/grid_landkreise.pkl')
+grid_landkreise.crs
 
 #########################################################################
 #join regional_grid information to data
 #########################################################################
-# %% Perform a spatial join to add landkreis information to the all_years data based on the geometry of the data.
+# %% 1. Reset the index and add the old index as a new column 'id' which could be used to search for duplicated entries after joining districts
+all_years = all_years.reset_index().rename(columns={'index': 'id'})
+
+# %% Perform a spatial join to add grid_landkreis information to the all_years data based on the geometry of the data.
 allyears_landkreise = gpd.sjoin(all_years, grid_landkreise, how='left', predicate="intersects")
 allyears_landkreise.info()
 allyears_landkreise.head()
@@ -391,33 +410,10 @@ gld.info()
 
 # %% Save file to pickle and parquet
 gld.to_pickle('data/interim/gld.pkl')
-gld.to_parquet('data/interim/gld.parquet')
+#data loading and preprocessing ends here
 ##############################################################################
 
-# %% Plot landkreise "Küstenmeer Region Lüneburg" and "Küstenmeer Region Weser-Ems"
-landkreise_kunst = landkreise[(landkreise['LANDKREIS'] == "Küstenmeer Region Lüneburg") | (landkreise['LANDKREIS'] == "Küstenmeer Region Weser-Ems")]
-fig, ax = plt.subplots(figsize=(10, 10))
-landkreise_kunst.plot(ax=ax)
-ax.set_title('Landkreise: Küstenmeer Region Lüneburg & Weser-Ems')
-plt.show()
-
-# %% See fields belonging to "Küstenmeer Region Lüneburg" or "Küstenmeer Region Weser-Ems" in the LANDKREIS column
-rows = allyears_districts[allyears_districts['LANDKREIS'].str.contains('Küstenmeer Region Lüneburg|Küstenmeer Region Weser-Ems', na=False)]
-# Both equal 841 rows but Küstenmeer Region Lüneburg only has 84 rows in the dataset
-yearly_counts = rows.groupby(['year', 'LANDKREIS']).size().reset_index(name='count')
-# Convert to DataFrame and save to csv
-df = yearly_counts
-df.to_csv('reports/statistics/kunstenmeer_yearly_counts.csv', index=False)
-# Save the filtered rows as a new DataFrame
-kunstenmeer_df = rows.copy()
-# Save the GeoDataFrame to a Shapefile
-kunstenmeer_gdf = gpd.GeoDataFrame(kunstenmeer_df, geometry='geometry')
-kunstenmeer_gdf.to_file('reports/gdf_files/kunstenmeer_fields/kunstenmeer_fields.shp', driver='ESRI Shapefile')
-kunstenmeer_gdf.plot()
-
-
-######################################################
-
+#Quickly visualize the geospatial distribution of the data
 # %%
 # Plotting gld
 gld[gld['year'] == 2012].plot(figsize=(10, 6))  # Adjust alpha for transparency as needed
