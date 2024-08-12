@@ -4,6 +4,7 @@ import geopandas as gpd
 import pandas as pd
 import os
 import math as m
+from functools import reduce # For merging multiple DataFrames
 
 
 # %% Set the current working directory
@@ -11,27 +12,40 @@ os.chdir('C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen')
 # Print the current working directory to verify
 print(os.getcwd())
 
-# %% Load pickle file
+# %% Load pickle file and merge kulturcode_mastermap
 with open('data/interim/gld.pkl', 'rb') as f:
     gld = pickle.load(f)
 gld.info()    
 gld.head()    
 
+kulturcode_mastermap = pd.read_csv('reports/Kulturcode/kulturcode_mastermap.csv', encoding='windows-1252')
 
-# %% ########################################
-# Field/Landscape level descriptive statistics
-    # total number of fields per year
-    # min, max and mean value of field size, peri and shape index per year across landscape. We could have a box plot of these values across years.
+# merge the kulturcode_mastermap with data dataframe on 'kulturcode' column
+gld = pd.merge(gld, kulturcode_mastermap, on='kulturcode', how='left')
+gld = gld.drop(columns=['kulturart', 'kulturart_sourceyear'])
 gld.info()
-desc_stats = gld.groupby('year')[['area_ha', 'peri_m', 'par', 'shp_index', 'fract']].describe()
+
+
+# %% General data descriptive statistics
+gen_stats = gld[['year', 'area_ha', 'peri_m', 'par', 'cpar', 'shp_index', 'fract']].describe()
+gen_stats.to_csv('reports/statistics/gen_stats08.08.csv') #save to csv
+
+# stats per year
+yearly_genstats = gld.groupby('year')[['area_ha', 'peri_m', 'par', 'cpar', 'shp_index', 'fract']].describe()
+yearly_genstats.to_csv('reports/statistics/yearly_genstats08.08.csv')# Save to CSV
 # Calculate the sum of each column
-column_sums = gld.groupby('year')[['area_ha', 'peri_m', 'par', 'shp_index', 'fract']].sum()
+column_sums = gld.groupby('year')[['area_ha', 'peri_m', 'par', 'cpar', 'shp_index', 'fract']].sum()
+column_sums['stat'] = 'sum'
 # Calculate the median of each column
-column_medians = gld.groupby('year')[['area_ha', 'peri_m', 'par', 'shp_index', 'fract']].sum()
- #save to csv
-desc_stats.to_csv('reports/statistics/ldscp_desc.csv')
-column_sums.to_csv('reports/statistics/sums.csv')
-column_medians.to_csv('reports/statistics/medians.csv')
+column_medians = gld.groupby('year')[['area_ha', 'peri_m', 'par', 'cpar', 'shp_index', 'fract']].median()
+column_medians['stat'] = 'median'
+column_sums.to_csv('reports/statistics/sums08.08.csv')
+column_medians.to_csv('reports/statistics/medians08.08.csv')
+# Combine all statistics into a single DataFrame
+yearly_stats = pd.concat([yearly_genstats, column_sums, column_medians])
+yearly_stats.to_csv('reports/statistics/yearly_stats08.08.csv')# Save to CSV
+# edit the yearly_stats file to make it more readable
+
 
 # %% #######################################
 # Grid level descriptive statistics
@@ -40,24 +54,36 @@ column_medians.to_csv('reports/statistics/medians.csv')
     # study area
 print("gridcount =", gld.groupby('year')[['CELLCODE', 'LANDKREIS']].nunique())
 
-# Create table of year, grid id, number of fields in grid, mean field size,
-# sd_fs, mean peri, sd_peri, mean shape index, sd_shape index.
-griddf = gld[['year', 'CELLCODE', 'LANDKREIS']].drop_duplicates().copy()
-griddf.info()
-
 # %% Before we continue, first check if number of entries for area_m2, peri_m, shp and fract within each cellcode is thesame
-counts = gld.groupby('CELLCODE')[['area_ha', 'peri_m', 'par', 'shp_index', 'fract']].count()
+counts = gld.groupby('CELLCODE')[['area_ha', 'peri_m', 'par', 'cpar', 'shp_index', 'fract']].count()
 same_counts = (counts['area_ha'] == counts['peri_m'])\
-    & (counts['area_ha'] == counts['par'])\
+    & (counts['area_ha'] == counts['par']) & (counts['area_ha'] == counts['cpar'])\
         & (counts['area_ha'] == counts['shp_index']) & (counts['area_ha'] == counts['fract'])
 different_counts = counts[~same_counts]
 different_counts
+
+# %%
+# Create df of year, grid id, landkreis, number of fields in grid, diversity of 
+# groups, mean field size, sd_fs, mean peri, sd_peri, mean shape index, sd_shape index.
+griddf = gld[['year', 'LANDKREIS', 'CELLCODE']].drop_duplicates().copy()
+griddf.info()
 
 # %%
 # Number of fields per grid
 fields = gld.groupby(['year', 'CELLCODE'])['geometry'].count().reset_index()
 fields.columns = ['year', 'CELLCODE', 'fields']
 griddf = pd.merge(griddf, fields, on=['year', 'CELLCODE'])
+
+# Number of unique groups per grid
+group_count = gld.groupby(['year', 'CELLCODE'])['Gruppe'].nunique().reset_index()
+group_count.columns = ['year', 'CELLCODE', 'group_count']
+griddf = pd.merge(griddf, group_count, on=['year', 'CELLCODE'])
+
+# List of unique groups per grid
+groups = gld.groupby(['year', 'CELLCODE'])['Gruppe'].unique().reset_index()
+groups.columns = ['year', 'CELLCODE', 'groups']
+griddf = pd.merge(griddf, groups, on=['year', 'CELLCODE'])
+griddf.head()
 
 # Sum of field size per grid
 fsha_sum = gld.groupby(['year', 'CELLCODE'])['area_ha'].sum().reset_index()
@@ -109,7 +135,7 @@ griddf['mean_par'] = (griddf['par_sum'] / griddf['fields'])
 # Median par per grid
 griddf['midpar'] = gld.groupby(['year', 'CELLCODE'])['par'].median().reset_index()['par']
 
-# %% Standard deviation of par per grids
+# Standard deviation of par per grids
 sdpar = gld.groupby(['year', 'CELLCODE'])['par'].std().reset_index()
 sdpar.columns = ['year', 'CELLCODE', 'sdpar']
 griddf = pd.merge(griddf, sdpar, on=['year', 'CELLCODE'])
@@ -178,52 +204,186 @@ griddf = pd.merge(griddf, sd_fract, on=['year', 'CELLCODE'])
 
 griddf.head()
 
+# %% subset selected columns in different dfs for easier handling
+griddf_sums = griddf.filter(['year', 'LANDKREIS', 'CELLCODE', 'fields', 'group_count', \
+    'fsha_sum', 'peri_sum', 'par_sum', 'cpar_sum', 'shp_sum', 'fract_sum'], axis=1)
+
+griddf_means = griddf.filter(['year', 'LANDKREIS', 'CELLCODE', 'fields', 'group_count', \
+    'mfs_ha', 'mperi', 'mean_par', 'mean_cpar', 'mean_shp', 'mean_fract'], axis=1)
+
+griddf_medians = griddf.filter(['year', 'LANDKREIS', 'CELLCODE', 'fields', 'group_count', \
+    'midfs_ha', 'midperi', 'midpar', 'midcpar', 'midshp', 'midfract'], axis=1)
+
+griddf_stds = griddf.filter(['year', 'LANDKREIS', 'CELLCODE', 'fields', 'group_count', \
+    'sdfs_ha', 'sdperi', 'sdpar', 'sd_cpar', 'sd_shp', 'sd_fract'], axis=1)
+griddf_stds.to_csv('reports/statistics/grid/griddf_stds.csv', encoding='windows-1252') #save to csv
+
 #############################################################
-# Calculating changes in grid level aspect values over years
+# Calculating absolute and reative changes in grid level aspect values over years
 ###############################################################
+# %% Change for griddf_counts
+# # Filter the DataFrame to get the values for the year 2012
+griddf_counts = griddf.filter(['year', 'LANDKREIS', 'CELLCODE', 'fields', 'group_count'], axis=1)
+griddf_counts_2012 = griddf_counts[griddf_counts['year'] == 2012].set_index('CELLCODE')
+# Merge the 2012 values back to the original DataFrame
+griddf_counts = griddf_counts.merge(griddf_counts_2012, on='CELLCODE', suffixes=('', '_2012'))
+# Ensure the data is sorted by 'CELLCODE' and 'year'
+griddf_counts = griddf_counts.sort_values(['CELLCODE', 'year'])
+griddf_counts = griddf_counts.assign(
+    FieldsChng=griddf_counts.groupby('CELLCODE')['fields'].diff().fillna(0),
+    FieldsChng12=griddf_counts['fields'] - griddf_counts['fields_2012'],
+    GroupsChng=griddf_counts.groupby('CELLCODE')['group_count'].diff().fillna(0),
+    GroupsChng12=griddf_counts['group_count'] - griddf_counts['group_count_2012']
+)   
+# Drop the columns with '_2012'
+griddf_counts = griddf_counts.drop(columns=['year_2012', 'LANDKREIS_2012', 'fields_2012', 'group_count_2012'])
+griddf_counts.info()
+
+# %% Change for griddf_sums
+griddf_sums_2012 = griddf_sums[griddf_sums['year'] == 2012].set_index('CELLCODE')
+griddf_sums = griddf_sums.merge(griddf_sums_2012, on='CELLCODE', suffixes=('', '_2012'))
+griddf_sums = griddf_sums.sort_values(['CELLCODE', 'year'])
+griddf_sums = griddf_sums.assign(
+    FSsumChng=griddf_sums.groupby('CELLCODE')['fsha_sum'].diff().fillna(0),
+    FSsumChng12=griddf_sums['fsha_sum'] - griddf_sums['fsha_sum_2012'],
+    PsumChng=griddf_sums.groupby('CELLCODE')['peri_sum'].diff().fillna(0),
+    PsumChng12=griddf_sums['peri_sum'] - griddf_sums['peri_sum_2012'],
+    PAsumChng=griddf_sums.groupby('CELLCODE')['par_sum'].diff().fillna(0),
+    PAsumChng12=griddf_sums['par_sum'] - griddf_sums['par_sum_2012'],
+    CPAsumChng=griddf_sums.groupby('CELLCODE')['cpar_sum'].diff().fillna(0),
+    CPAsumChng12=griddf_sums['cpar_sum'] - griddf_sums['cpar_sum_2012'],
+    SIsumChng=griddf_sums.groupby('CELLCODE')['shp_sum'].diff().fillna(0),
+    SIsumChng12=griddf_sums['shp_sum'] - griddf_sums['shp_sum_2012'],
+    fractsumChng=griddf_sums.groupby('CELLCODE')['fract_sum'].diff().fillna(0),
+    fractsumChng12=griddf_sums['fract_sum'] - griddf_sums['fract_sum_2012']
+)
+
+# drop the columns with '_2012'
+griddf_sums = griddf_sums.drop(columns=['year_2012', 'LANDKREIS_2012', 'fields_2012', 'group_count_2012',\
+    'fsha_sum_2012', 'peri_sum_2012', 'par_sum_2012', 'cpar_sum_2012', 'shp_sum_2012', 'fract_sum_2012'])
+
+griddf_sums.info()
+griddf_sums.to_csv('reports/statistics/grid/griddf_sums.csv', encoding='windows-1252') #save to csv 
+
+# %% Change for griddf_means   
+griddf_2012_means = griddf_means[griddf_means['year'] == 2012].set_index('CELLCODE')
+griddf_means = griddf_means.merge(griddf_2012_means, on='CELLCODE', suffixes=('', '_2012'))
+griddf_means = griddf_means.sort_values(['CELLCODE', 'year'])
+griddf_means = griddf_means.assign(
+    MFSChng=griddf_means.groupby('CELLCODE')['mfs_ha'].diff().fillna(0),
+    MFSChng12=griddf_means['mfs_ha'] - griddf_means['mfs_ha_2012'],
+    MperiChng=griddf_means.groupby('CELLCODE')['mperi'].diff().fillna(0),
+    MperiChng12=griddf_means['mperi'] - griddf_means['mperi_2012'],
+    MPAChng=griddf_means.groupby('CELLCODE')['mean_par'].diff().fillna(0),
+    MPAChng12=griddf_means['mean_par'] - griddf_means['mean_par_2012'],
+    MCPAChng=griddf_means.groupby('CELLCODE')['mean_cpar'].diff().fillna(0),
+    MCPAChng12=griddf_means['mean_cpar'] - griddf_means['mean_cpar_2012'],
+    MSIChng=griddf_means.groupby('CELLCODE')['mean_shp'].diff().fillna(0),
+    MSIChng12=griddf_means['mean_shp'] - griddf_means['mean_shp_2012'],
+    MfractChng=griddf_means.groupby('CELLCODE')['mean_fract'].diff().fillna(0),
+    MfractChng12=griddf_means['mean_fract'] - griddf_means['mean_fract_2012']
+)
+
+# drop the columns with '_2012'
+griddf_means = griddf_means.drop(columns=['year_2012', 'LANDKREIS_2012', 'fields_2012', 'group_count_2012',\
+    'mfs_ha_2012','mperi_2012', 'mean_par_2012', 'mean_cpar_2012', 'mean_shp_2012', 'mean_fract_2012'])
+griddf_means.info()
+griddf_means.to_csv('reports/statistics/grid/griddf_means.csv', encoding='windows-1252') #save to csv
+
+# %% Change for griddf_medians
+griddf_2012_medians = griddf_medians[griddf_medians['year'] == 2012].set_index('CELLCODE')
+griddf_medians = griddf_medians.merge(griddf_2012_medians, on='CELLCODE', suffixes=('', '_2012'))
+griddf_medians = griddf_medians.sort_values(['CELLCODE', 'year'])
+griddf_medians = griddf_medians.assign(
+    MidFSChng=griddf_medians.groupby('CELLCODE')['midfs_ha'].diff().fillna(0),
+    MidFSChng12=griddf_medians['midfs_ha'] - griddf_medians['midfs_ha_2012'],
+    MdperiChng=griddf_medians.groupby('CELLCODE')['midperi'].diff().fillna(0),
+    MdperiChng12=griddf_medians['midperi'] - griddf_medians['midperi_2012'],
+    MidPAChng=griddf_medians.groupby('CELLCODE')['midpar'].diff().fillna(0),
+    MidPAChng12=griddf_medians['midpar'] - griddf_medians['midpar_2012'],
+    MidCPAChng=griddf_medians.groupby('CELLCODE')['midcpar'].diff().fillna(0),
+    MidCPAChng12=griddf_medians['midcpar'] - griddf_medians['midcpar_2012'],
+    MidSIChng=griddf_medians.groupby('CELLCODE')['midshp'].diff().fillna(0),
+    MidSIChng12=griddf_medians['midshp'] - griddf_medians['midshp_2012'],
+    MidfractChng=griddf_medians.groupby('CELLCODE')['midfract'].diff().fillna(0),
+    MidfractChng12=griddf_medians['midfract'] - griddf_medians['midfract_2012']
+)
+# drop the columns with '_2012'
+griddf_medians = griddf_medians.drop(columns=['year_2012', 'LANDKREIS_2012', 'fields_2012',\
+    'group_count_2012', 'midfs_ha_2012', 'midperi_2012', 'midpar_2012', 'midcpar_2012', 'midshp_2012', 'midfract_2012'])
+
+griddf_medians.info()
+griddf_medians.to_csv('reports/statistics/grid/griddf_medians.csv', encoding='windows-1252') #save to csv
+
 # %%
-# Create columns of differences over years in each grid of number of fields in grid, mean field size and mean shape index
-griddf = griddf.sort_values(['CELLCODE', 'year'])  # Ensure the data is sorted by 'CELLCODE' and 'year'
-griddf['MFSChng'] = griddf.groupby('CELLCODE')['mfs_ha'].diff()
-griddf['MFSChng'] = griddf['MFSChng'].fillna(0)
+# Merge the DataFrames to create an extended grid level DataFrame
+dfs = [griddf_counts, griddf_sums, griddf_means, griddf_medians, griddf_stds]
+griddf_ext = reduce(lambda left, right: pd.merge(left, right, on=['year', 'LANDKREIS', 'CELLCODE', 'fields', 'group_count']), dfs)
 
-griddf['MSIChng'] = griddf.groupby('CELLCODE')['mean_shp'].diff()
-griddf['MSIChng'] = griddf['MSIChng'].fillna(0)
-
-griddf['MfractChng'] = griddf.groupby('CELLCODE')['mean_fract'].diff()
-griddf['MfractChng'] = griddf['MfractChng'].fillna(0)
-
-griddf.head(15)
-
-
-# %% check for null values in griddf
-# Count the number of null values in each column
-null_counts = griddf.isnull().sum()
-# Print the null counts
-print(null_counts)
-# Filter rows with at least one null value
-null_rows = griddf[griddf.isnull().any(axis=1)]
-# Print the rows with null values
-print(null_rows)
-
-
-# %% # Identify instances where 'fields' is 1
-field_1 = griddf[griddf['fields'] == 1]
-# Print the result
-print(field_1)
-#save to csv
-field_1.to_csv('reports/instances_with_field_1.csv')
-
-
-# %% Descriptive statistics of the grid level metrics by year
-grid_desc_stats = griddf.groupby('year')[['fields', 'mfs_ha', 'fs_sum', 'MFSChng', 'mperi', \
-    'mean_shp', 'shp_sum', 'MSIChng', 'mean_fract', 'fract_sum', 'MfractChng']].describe()
-# drop 25%, 50% and 75% columns for each metric
-grid_desc_stats.to_csv('reports/statistics/grid/grid_desc_stats.csv') 
+##########################################################################################################
+# Calculating descriptive statistics for the grid level metrics
+##########################################################################################################
+# %% Mean statistics of the grid level metrics by year
+gridext_means = griddf_ext.groupby('year')[['fields', 'group_count', 'fsha_sum', 'peri_sum', 'mfs_ha', 'mperi',\
+    'mean_par', 'mean_cpar', 'mean_shp', 'mean_fract','midfs_ha', 'midperi', 'midpar', 'midcpar', 'midshp', 'midfract'
+]].mean()
 # save to csv
-grid_sums = griddf.groupby('year')[['fields', 'mfs_ha', 'fs_sum', 'MFSChng', 'mperi', \
-    'mean_shp', 'shp_sum', 'MSIChng', 'mean_fract', 'fract_sum', 'MfractChng']].sum()
-grid_sums.to_csv('reports/statistics/grid/gridsums.csv') #save to csv
+gridext_means.to_csv('reports/statistics/grid/gridext_means.csv')
+
+gridext_means_chng = griddf_ext.groupby('year')[['FieldsChng', 'FieldsChng12', 'GroupsChng', 'GroupsChng12',\
+    'FSsumChng', 'FSsumChng12', 'PsumChng', 'PsumChng12', 'MFSChng', 'MFSChng12', 'MperiChng', 'MperiChng12',\
+        'MPAChng', 'MPAChng12', 'MCPAChng', 'MCPAChng12', 'MSIChng', 'MSIChng12', 'MfractChng', 'MfractChng12',\
+            'MidFSChng', 'MidFSChng12', 'MdperiChng', 'MdperiChng12', 'MidPAChng', 'MidPAChng12',\
+                'MidCPAChng', 'MidCPAChng12', 'MidSIChng', 'MidSIChng12', 'MidfractChng', 'MidfractChng12']].mean()
+# save to csv
+gridext_means_chng.to_csv('reports/statistics/grid/gridextchng_means.csv')
+
+# %% Median statistics of the grid level metrics by year
+gridext_medians = griddf_ext.groupby('year')[['fields', 'group_count', 'fsha_sum', 'peri_sum', 'mfs_ha', 'mperi',\
+    'mean_par', 'mean_cpar', 'mean_shp', 'mean_fract','midfs_ha', 'midperi', 'midpar', 'midcpar', 'midshp',\
+        'midfract']].median()
+# save to csv
+gridext_medians.to_csv('reports/statistics/grid/gridext_medians.csv')
+
+gridext_medians_chng = griddf_ext.groupby('year')[['FieldsChng', 'FieldsChng12', 'GroupsChng', 'GroupsChng12',\
+    'FSsumChng', 'FSsumChng12', 'PsumChng', 'PsumChng12', 'MFSChng', 'MFSChng12', 'MperiChng', 'MperiChng12',\
+        'MPAChng', 'MPAChng12', 'MCPAChng', 'MCPAChng12', 'MSIChng', 'MSIChng12', 'MfractChng', 'MfractChng12',\
+            'MidFSChng', 'MidFSChng12', 'MdperiChng', 'MdperiChng12', 'MidPAChng', 'MidPAChng12',\
+                'MidCPAChng', 'MidCPAChng12', 'MidSIChng', 'MidSIChng12', 'MidfractChng', 'MidfractChng12']].median()
+# save to csv
+gridext_means_chng.to_csv('reports/statistics/grid/gridextchng_medians.csv')
+
+# %% Quantile statistics of the grid level metrics by year
+gridext_20 = griddf_ext.groupby('year')[['fields', 'group_count', 'fsha_sum', 'peri_sum', 'mfs_ha', 'mperi',\
+    'mean_par', 'mean_cpar', 'mean_shp', 'mean_fract','midfs_ha', 'midperi', 'midpar', 'midcpar', 'midshp',\
+        'midfract']].quantile(0.25)
+# save to csv
+gridext_20.to_csv('reports/statistics/grid/gridext_20.csv')
+
+gridext_50 = griddf_ext.groupby('year')[['fields', 'group_count', 'fsha_sum', 'peri_sum', 'mfs_ha', 'mperi',\
+    'mean_par', 'mean_cpar', 'mean_shp', 'mean_fract','midfs_ha', 'midperi', 'midpar', 'midcpar', 'midshp',\
+        'midfract']].quantile(0.5)
+# save to csv
+gridext_50.to_csv('reports/statistics/grid/gridext_50.csv')
+
+gridext_75 = griddf_ext.groupby('year')[['fields', 'group_count', 'fsha_sum', 'peri_sum', 'mfs_ha', 'mperi',\
+    'mean_par', 'mean_cpar', 'mean_shp', 'mean_fract','midfs_ha', 'midperi', 'midpar', 'midcpar', 'midshp',\
+        'midfract']].quantile(0.75)
+# save to csv
+gridext_75.to_csv('reports/statistics/grid/gridext_75.csv')
+
+# %% Mean statistics of the grid level metrics all years
+means = griddf_ext[['year', 'fields', 'group_count', 'fsha_sum', 'peri_sum', 'mfs_ha', 'mperi',\
+    'mean_par', 'mean_cpar', 'mean_shp', 'mean_fract','midfs_ha', 'midperi', 'midpar', 'midcpar',\
+        'midshp', 'midfract', 'FieldsChng', 'FieldsChng12', 'GroupsChng', 'GroupsChng12', 'FSsumChng',\
+            'FSsumChng12', 'PsumChng', 'PsumChng12', 'MFSChng', 'MFSChng12', 'MperiChng', 'MperiChng12',\
+                'MPAChng', 'MPAChng12', 'MCPAChng', 'MCPAChng12', 'MSIChng', 'MSIChng12', 'MfractChng',\
+                    'MfractChng12', 'MidFSChng', 'MidFSChng12', 'MdperiChng', 'MdperiChng12', 'MidPAChng',\
+                        'MidPAChng12', 'MidCPAChng', 'MidCPAChng12', 'MidSIChng', 'MidSIChng12',\
+                            'MidfractChng', 'MidfractChng12']].mean()
+
+# save to csv
+means.to_csv('reports/statistics/means.csv')
 
 
 # %% ########################################
@@ -235,7 +395,7 @@ geom.info()
 geom.crs
 
 # %% Join grid to griddf using cellcode
-gridgdf = griddf.merge(geom, on='CELLCODE')
+gridgdf = griddf_ext.merge(geom, on='CELLCODE')
 gridgdf.info()
 gridgdf.head()
 
@@ -247,23 +407,10 @@ gridgdf.drop(columns=['LANDKREIS_y'], inplace=True)
 gridgdf.rename(columns={'LANDKREIS_x': 'LANDKREIS'}, inplace=True)
 
 # %% Save to csv and pkl
-#griddf.to_csv('data/interim/griddf.csv')
-gridgdf.to_pickle('data/interim/gridgdf.pkl')
+griddf.to_csv('data/interim/griddf08.08.csv', encoding='windows-1252')
+gridgdf.to_pickle('data/interim/gridgdf08.08.pkl')
 
 # Use line plot with shaded area to show the sd of each metric across grids
 # over years.
    
 
-############################################################
-# Temporal analysis: change in number of grid as number of field
-# increases or decreses over years within the grids
-############################################################
-
-# %%
-#import dtale
-#d = dtale.show(griddf)
-#d.open_browser()
-# %%
-#import qgrid
-#qgrid_widget = qgrid.show_grid(griddf, show_toolbar=True)
-#qgrid_widget

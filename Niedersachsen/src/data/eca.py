@@ -393,8 +393,6 @@ grouped.info()
 grouped.head(15)
 # rename year column to 'most_recent_year'
 grouped = grouped.rename(columns={'year': 'kulturart_sourceyear'})
-# Save to a csv file
-#grouped.to_csv('reports/Kulturcode/kulturcode_mastermap.csv', encoding='windows-1252', index=False)
 kulturcode_mastermap = grouped.copy()
 
 
@@ -414,5 +412,7 @@ kulturcode_mastermap['category1'] = kulturcode_mastermap['Gruppe'].apply(
 
 # Display the first few rows to verify the new column
 kulturcode_mastermap.head()
-# %%
+# Save to a csv file
+# kulturcode_mastermap.to_csv('reports/Kulturcode/kulturcode_mastermap.csv', encoding='windows-1252', index=False)
+
 
