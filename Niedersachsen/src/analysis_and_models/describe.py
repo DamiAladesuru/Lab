@@ -13,11 +13,6 @@ os.chdir('C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen')
 
 from src.data import dataload as dl
 
-output_dir = 'reports/statistics/subsets'
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
-
-# %%
 def subset_data():
     # Load base data
     gld = dl.load_data(loadExistingData=True)
@@ -30,31 +25,6 @@ def subset_data():
     gld_others = gld[gld['category1'] == 'Others']
 
     return gld_envi, gld_others
-
-# Call the subset_data function to get gld_envi and gld_others
-gld_envi, gld_others = subset_data()
-
-gld_subsets = {
-    'envi': gld_envi,
-    'others': gld_others,
-}
-
-# %%
-for key, df in gld_subsets.items():
-    print(f"Info for gld_subsets_{key}:")
-    print(df.info())
-# %% #####################################################################
-# General data descriptive statistics
-###########################################################################
-for key, dataset in gld_subsets.items():
-    # Select the specified columns and calculate descriptive statistics
-    gen_stats = dataset[['year', 'area_ha', 'peri_m', 'par', 'cpar', 'shp_index', 'fract']].describe()
-    # Add a column to indicate the type of statistic
-    gen_stats['statistic'] = gen_stats.index
-    # Reorder columns to place 'statistic' at the front
-    gen_stats = gen_stats[['statistic', 'year', 'area_ha', 'peri_m', 'par', 'cpar', 'shp_index', 'fract']]
-    # Save the descriptive statistics to a CSV file
-    gen_stats.to_csv(os.path.join(output_dir, f'gen_stats_{key}.csv'), index=False)
 
 # general data descriptive statistics grouped by year
 def yearly_gen_statistics(gld_subsets):
@@ -116,24 +86,17 @@ def yearly_gen_statistics(gld_subsets):
 
     return yearlygen_stats
 
-yearly_desc_dict = yearly_gen_statistics(gld_subsets)
-for key, df in yearly_desc_dict.items():
-    print(f"Info for yearlygen_stats_{key}:")
-    print(df.info())
-    df.to_csv(os.path.join(output_dir, f'yearlygen_stats_{key}.csv'), index=False)
-    print(f"Saved yearlygen_stats_{key} to {os.path.join(output_dir, f'yearlygen_stats_{key}.csv')}")
 
-# %% ##########################################################################
-# Grid level data processing
-###########################################################################
-# %% from gld_subsets create a datframes with the following columns: 'year', 'CELLCODE' and 'LANDKREIS'.
+# from gld_subsets create a datframes with the following columns: 'year', 'CELLCODE' and 'LANDKREIS'.
 def create_griddf(gld_subsets):
     columns = ['year', 'LANDKREIS', 'CELLCODE']
     griddfs = {}
 
     for key, gld in gld_subsets.items():
         # Extract the specified columns and remove duplicates
-        griddf = gld[columns].drop_duplicates()
+        griddf = gld[columns].drop_duplicates().copy()
+        logging.info(f"Created griddf_{key} with shape {griddf.shape}")
+        logging.info(f"Columns in griddf_{key}: {griddf.columns}")
         
         # Number of fields per grid
         fields = gld.groupby(['year', 'CELLCODE'])['geometry'].count().reset_index()
@@ -265,124 +228,252 @@ def create_griddf(gld_subsets):
         griddfs[key] = griddf
 
     return griddfs
-# Create and save griddfs
-griddfs = create_griddf(gld_subsets)
-for key, df in griddfs.items():
-    print(f"Info for griddf_{key}:")
-    print(df.info())
-    df.to_csv(os.path.join(output_dir, f'griddf_{key}.csv'), index=False)
-    print(f"griddf_{key} to {os.path.join(output_dir, f'griddf_{key}.csv')}")
 
-# %%   
-def extract_and_merge_2012_data(griddfs):
+# check for duplicates in the griddfs
+def check_duplicates(griddfs):
     for key, df in griddfs.items():
-        # Extract 2012 data
-        df_2012 = df[df['year'] == 2012].copy()
-        # Set index to 'CELLCODE'
-        df_2012.set_index('CELLCODE', inplace=True)
-        # Drop the 'year' column from the 2012 data to avoid duplication in the merge
-        df_2012.drop(columns=['year'], inplace=True)
-        # Rename the 2012 columns to reflect they are from 2012
-        df_2012.columns = [f"{col}_2012" for col in df_2012.columns]
-        # Merge the 2012 data back into the original dataframe on 'CELLCODE'
-        griddfs[key] = pd.merge(df, df_2012, on='CELLCODE', how='left')
-
-    return griddfs
-
-def create_diff_columns(griddfs_with2012):
-    griddfs_ext = {}
-    for key, df in griddfs_with2012.items():
-        print(f"Info for griddf_with2012_{key}:")
-        print(df.info())
-    for key, df in griddfs_with2012.items():
-        # sort by 'CELLCODE', 'year' and Create columns for the differences between one row and the next
-        df.sort_values(by=['CELLCODE', 'year'], inplace=True)
-        for col in df.columns:
-            if col not in ['year', 'LANDKREIS', 'CELLCODE', 'groups','LANDKREIS_2012', 'groups_2012']:
-                df[f"{col}_diff"] = df[col].diff()
- 
-        # Reset the index
-        df.reset_index(drop=True, inplace=True)
-        # Store the extended DataFrame in the dictionary
-        griddfs_ext[key] = df
-        
-    return griddfs_ext
-
-def create_diff12_columns(griddfs_ext):
+        duplicates = df[df.duplicated(subset=['year', 'CELLCODE'], keep=False)]
+        print(f"Number of duplicates in griddf_{key}: {duplicates.shape[0]}")
+        if duplicates.shape[0] > 0:
+            print(duplicates)
+        else:
+            print("No duplicates found")
+            
+def calculate_differences(griddfs):
+    # Create a copy of the original dictionary to avoid altering the original data
+    griddfs_ext = griddfs.copy()
+    
     for key, df in griddfs_ext.items():
-        # Convert all columns to numeric if possible
-        df = df.apply(pd.to_numeric, errors='coerce')
-        # Create columns for the differences between 2012 and other years
-        for col in df.columns:
-            if col.endswith('_2012'):
-                # Extract the base name from the column name
-                base_name = col[:-5]
-                # Check if the corresponding 2012 column exists
-                if f"{base_name}_2012" in df.columns:
-                    # Create a new column with the difference between the year and 2012
-                    df[f"{base_name}_diff12"] = df[col] - df[f"{base_name}_2012"]
-        # Drop the 2012 columns
-        df.drop(columns=[col for col in df.columns if col.endswith('_2012')], inplace=True)
+        # Ensure the data is sorted by 'CELLCODE' and 'year'
+        df.sort_values(by=['CELLCODE', 'year'], inplace=True)
+        numeric_columns = df.select_dtypes(include='number').columns
+
+        # Calculate yearly difference for numeric columns
+        for col in numeric_columns:
+            df[f'{col}_yearly_diff'] = df.groupby('CELLCODE')[col].diff().fillna(0)
+
+        # Calculate difference relative to the year 2012
+        if 2012 in df['year'].values:
+            # Create a DataFrame for 2012 values
+            df_2012 = df[df['year'] == 2012][['CELLCODE'] + list(numeric_columns)]
+            df_2012 = df_2012.rename(columns={col: f'{col}_2012' for col in numeric_columns})
+            
+            # Merge the 2012 values back to the original DataFrame
+            df = pd.merge(df, df_2012, on='CELLCODE', how='left')
+
+            # Calculate the difference from 2012 for each numeric column
+            for col in numeric_columns:
+                df[f'{col}_diff_from_2012'] = df[col] - df[f'{col}_2012']
+
+            # Drop the temporary 2012 columns
+            df.drop(columns=[f'{col}_2012' for col in numeric_columns], inplace=True)
+        
+        # Update the dictionary with the modified DataFrame
+        griddfs_ext[key] = df
 
     return griddfs_ext
 
-# Call the functions with the defined variables
-griddfs_with2012 = extract_and_merge_2012_data(griddfs)
-griddfs_ext = create_diff_columns(griddfs_with2012)
-griddfs_ext = create_diff12_columns(griddfs_ext)
-
-# Output information
-for key, df in griddfs_ext.items():
-    print(f"Info for griddf_ext_{key}:")
-    print(df.info())
-    df.to_csv(os.path.join(output_dir, f'griddf_ext_{key}.csv'), index=False)
-    print(f"Saved griddf_ext_{key} to {os.path.join(output_dir, f'griddf_ext_{key}.csv')}")
-
-#####################################################################
-# # Calculating descriptive statistics for the grid level metrics
-#####################################################################
-# %% compute mean and median for columns in griddfs_ext. save the results to a csv file
+# compute mean and median for columns in griddfs_ext. save the results to a csv file
 def compute_mean_median(griddfs_ext):
     mean_median = {}
     for key, df in griddfs_ext.items():
         # Group by 'year' and calculate the mean and median
         mean_median[key] = df.groupby('year').agg(
             mean_fields=('fields', 'mean'),
+            mean_fields_yearly_diff=('fields_yearly_diff', 'mean'),
+            mean_fields_diff12=('fields_diff_from_2012', 'mean'),
             median_fields=('fields', 'median'),
+            median_fields_yearly_diff=('fields_yearly_diff', 'median'),
+            median_fields_diff12=('fields_diff_from_2012', 'median'),
+            fields_25=('fields', lambda x: np.percentile(x, 25)),
+            fields_50=('fields', lambda x: np.percentile(x, 50)),
+            fields_75=('fields', lambda x: np.percentile(x, 75)),
+                        
             mean_group_count=('group_count', 'mean'),
+            mean_group_count_yearly_diff=('group_count_yearly_diff', 'mean'),
+            mean_group_count_diff12=('group_count_diff_from_2012', 'mean'),
+            median_group_count_yearly_diff=('group_count_yearly_diff', 'median'),
             median_group_count=('group_count', 'median'),
+            median_group_count_diff12=('group_count_diff_from_2012', 'median'),
+            
             mean_mfs_ha=('mfs_ha', 'mean'),
+            mean_mfs_ha_yearly_diff=('mfs_ha_yearly_diff', 'mean'),
+            mean_mfs_ha_diff12=('mfs_ha_diff_from_2012', 'mean'),                
             median_mfs_ha=('mfs_ha', 'median'),
+            median_mfs_ha_yearly_diff=('mfs_ha_yearly_diff', 'median'),
+            median_mfs_ha_diff12=('mfs_ha_diff_from_2012', 'median'),                        
+            mfs_ha_25=('mfs_ha', lambda x: np.percentile(x, 25)),
+            mfs_ha_50=('mfs_ha', lambda x: np.percentile(x, 50)),
+            mfs_ha_75=('mfs_ha', lambda x: np.percentile(x, 75)),
+
             mean_midfs_ha=('midfs_ha', 'mean'),
+            mean_midfs_ha_yearly_diff=('midfs_ha_yearly_diff', 'mean'),            
+            mean_midfs_ha_diff12=('midfs_ha_diff_from_2012', 'mean'),
             median_midfs_ha=('midfs_ha', 'median'),
+            median_midfs_ha_yearly_diff=('midfs_ha_yearly_diff', 'median'),
+            median_midfs_ha_diff12=('midfs_ha_diff_from_2012', 'median'),
+
             mean_mperi=('mperi', 'mean'),
+            mean_mperi_yearly_diff=('mperi_yearly_diff', 'mean'),
+            mean_mperi_diff12=('mperi_diff_from_2012', 'mean'),
             median_mperi=('mperi', 'median'),
+            median_mperi_yearly_diff=('mperi_yearly_diff', 'median'),            
+            median_mperi_diff12=('mperi_diff_from_2012', 'median'),
+
             mean_midperi=('midperi', 'mean'),
-            median_midperi=('midperi', 'median'),
+            mean_midperi_yearly_diff=('midperi_yearly_diff', 'mean'),
+            mean_midperi_diff12=('midperi_diff_from_2012', 'mean'),            
+            median_midperi=('midperi', 'median'),            
+            median_midperi_yearly_diff=('midperi_yearly_diff', 'median'),            
+            median_midperi_diff12=('midperi_diff_from_2012', 'median'),            
+            
             mean_mean_par=('mean_par', 'mean'),
+            mean_mean_par_yearly_diff=('mean_par_yearly_diff', 'mean'),
+            mean_mean_par_diff12=('mean_par_diff_from_2012', 'mean'),
             median_mean_par=('mean_par', 'median'),
+            median_mean_par_yearly_diff=('mean_par_yearly_diff', 'median'),
+            median_mean_par_diff12=('mean_par_diff_from_2012', 'median'),
+            
             mean_midpar=('midpar', 'mean'),
+            mean_midpar_yearly_diff=('midpar_yearly_diff', 'mean'),            
+            mean_midpar_diff12=('midpar_diff_from_2012', 'mean'),            
             median_midpar=('midpar', 'median'),
+            median_midpa_yearly_diff=('midpar_yearly_diff', 'median'),
+            median_midpa_diff12=('midpar_diff_from_2012', 'median'),
+
             mean_mean_cpar=('mean_cpar', 'mean'),
+            mean_mean_cpar_yearly_diff=('mean_cpar_yearly_diff', 'mean'),            
+            mean_mean_cpar_diff12=('mean_cpar_diff_from_2012', 'mean'),            
             median_mean_cpar=('mean_cpar', 'median'),
+            median_mean_cpar_yearly_diff=('mean_cpar_yearly_diff', 'median'),
+            median_mean_cpar_diff12=('mean_cpar_diff_from_2012', 'median'),
+            
             mean_midcpar=('midcpar', 'mean'),
-            median_midcpar=('midcpar', 'median'),
+            mean_midcpar_yearly_diff=('midcpar_yearly_diff', 'mean'),            
+            mean_midcpar_diff12=('midcpar_diff_from_2012', 'mean'),            
+            median_midcpar=('midcpar', 'median'),            
+            median_midcpar_yearly_diff=('midcpar_yearly_diff', 'median'),            
+            median_midcpar_diff12=('midcpar_diff_from_2012', 'median'),
+
             mean_mean_shp=('mean_shp', 'mean'),
+            mean_mean_shp_yearly_diff=('mean_shp_yearly_diff', 'mean'),
+            mean_mean_shp_diff12=('mean_shp_diff_from_2012', 'mean'),
             median_mean_shp=('mean_shp', 'median'),
+            median_mean_shp_yearly_diff=('mean_shp_yearly_diff', 'median'),            
+            median_mean_shp_diff12=('mean_shp_diff_from_2012', 'median'),            
+
             mean_midshp=('midshp', 'mean'),
+            mean_midshp_yearly_diff=('midshp_yearly_diff', 'mean'),            
+            mean_midshp_diff12=('midshp_diff_from_2012', 'mean'),            
             median_midshp=('midshp', 'median'),
+            median_midshp_yearly_diff=('midshp_yearly_diff', 'median'),            
+            median_midshp_diff12=('midshp_diff_from_2012', 'median'),            
+
             mean_mean_fract=('mean_fract', 'mean'),
+            mean_mean_fract_yearly_diff=('mean_fract_yearly_diff', 'mean'),
+            mean_mean_fract_diff12=('mean_fract_diff_from_2012', 'mean'),
             median_mean_fract=('mean_fract', 'median'),
+            median_mean_fract_yearly_diff=('mean_fract_yearly_diff', 'median'),
+            median_mean_fract_diff12=('mean_fract_diff_from_2012', 'median'),
+
             mean_midfract=('midfract', 'mean'),
+            mean_midfract_yearly_diff=('midfract_yearly_diff', 'mean'),
+            mean_midfract_diff12=('midfract_diff_from_2012', 'mean'),                       
             median_midfract=('midfract', 'median'),
+            median_midfract_yearly_diff=('midfract_yearly_diff', 'median'),
+            median_midfract_diff12=('midfract_diff_from_2012', 'median')
         ).reset_index()
         
     return mean_median
 
-mean_median = compute_mean_median(griddfs_ext)
-for key, df in mean_median.items():
-    print(f"Info for mean_median_{key}:")
-    print(df.info())
-    df.to_csv(os.path.join(output_dir, f'mean_median_{key}.csv'), index=False)
-    print(f"Saved mean_median_{key} to {os.path.join(output_dir, f'mean_median_{key}.csv')}")
-# %%
+def create_gdf(griddfs_ext):
+    # Load Germany grid_landkreise to obtain the geometry
+    with open('data/interim/grid_landkreise.pkl', 'rb') as f:
+        geom = pickle.load(f)
+    geom.info()
+    
+    gridgdfs = {}
+    
+    # Join grid to griddfs_ext using cellcode   
+    for key, df in griddfs_ext.items():
+        gridgdf = df.merge(geom, on='CELLCODE')
+        # Convert the DataFrame to a GeoDataFrame
+        gridgdf = gpd.GeoDataFrame(gridgdf, geometry='geometry')
+        # Dropping the 'LANDKREIS_y' column and rename LANDKREIS_x
+        gridgdf.drop(columns=['LANDKREIS_y'], inplace=True)
+        gridgdf.rename(columns={'LANDKREIS_x': 'LANDKREIS'}, inplace=True)
+        gridgdfs[key] = gridgdf
+    
+    return gridgdfs
+
+
+def process_descriptives():
+    output_dir = 'reports/statistics/subsets'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        
+    gld_envi, gld_others = subset_data()
+
+    gld_subsets = {
+        'envi': gld_envi,
+        'others': gld_others,
+    }
+    for key, df in gld_subsets.items():
+        print(f"Info for gld_subsets_{key}:")
+        print(df.info())
+
+    # General data descriptive statistics
+    ####################################################
+    for key, dataset in gld_subsets.items():
+        # Select the specified columns and calculate descriptive statistics
+        gen_stats = dataset[['year', 'area_ha', 'peri_m', 'par', 'cpar', 'shp_index', 'fract']].describe()
+        # Add a column to indicate the type of statistic
+        gen_stats['statistic'] = gen_stats.index
+        # Reorder columns to place 'statistic' at the front
+        gen_stats = gen_stats[['statistic', 'year', 'area_ha', 'peri_m', 'par', 'cpar', 'shp_index', 'fract']]
+        # Save the descriptive statistics to a CSV file
+        gen_stats.to_csv(os.path.join(output_dir, f'gen_stats_{key}.csv'), index=False)
+        
+        
+    yearly_desc_dict = yearly_gen_statistics(gld_subsets)
+    for key, df in yearly_desc_dict.items():
+        print(f"Info for yearlygen_stats_{key}:")
+        print(df.info())
+        df.to_csv(os.path.join(output_dir, f'yearlygen_stats_{key}.csv'), index=False)
+        print(f"Saved yearlygen_stats_{key} to {os.path.join(output_dir, f'yearlygen_stats_{key}.csv')}")
+
+    # Grid level data processing
+    ####################################################   
+    griddfs = create_griddf(gld_subsets)
+    for key, df in griddfs.items():
+        print(f"Info for griddf_{key}:")
+        print(df.info())
+        df.to_csv(os.path.join(output_dir, f'griddf_{key}.csv'), encoding='windows-1252', index=False)
+        print(f"griddf_{key} to {os.path.join(output_dir, f'griddf_{key}.csv')}")
+        
+    dupli = check_duplicates(griddfs)
+    
+    griddfs_ext = calculate_differences(griddfs)
+    for key, df in griddfs_ext.items():
+        print(f"Info for griddf_{key}:")
+        print(df.info())
+        df.to_csv(os.path.join(output_dir, f'griddf_{key}_extended.csv'), encoding='windows-1252', index=False)
+        print(f"Saved griddf_{key}_extended to {os.path.join(output_dir, f'griddf_{key}_extended.csv')}")
+
+    mean_median = compute_mean_median(griddfs_ext)
+    for key, df in mean_median.items():
+        print(f"Info for mean_median_{key}:")
+        print(df.info())
+        df.to_csv(os.path.join(output_dir, f'mean_median_{key}.csv'), index=False)
+        print(f"Saved mean_median_{key} to {os.path.join(output_dir, f'mean_median_{key}.csv')}")
+
+    gridgdf = create_gdf(griddfs_ext)
+    for key, gdf in gridgdf.items():
+        gdf.to_pickle(os.path.join('data', 'interim', f'gridgdf_{key}.pkl'))
+        print(f"Saved gridgdf_{key} to {os.path.join('data', 'interim', f'gridgdf_{key}.pkl')}")
+
+    return gridgdf
+
+if __name__ == '__main__':
+    gridgdf = process_descriptives()
+    print("Done!")
