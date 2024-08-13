@@ -5,15 +5,14 @@ import os
 import seaborn as sns
 import matplotlib.pyplot as plt
 import openpyxl
+import pickle
 
-# Print the current working directory to verify
-print(os.getcwd())
-# %% Set the current working directory
+
 os.chdir('C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen')
 
 
 # %% Load the data
-data = pd.read_pickle('data/interim/data.pkl')
+data = pd.read_pickle('data/interim/gld.pkl')
 data.info()
 
 # %% load all sheets from excel file containing actual unique values of kulturcode in data
