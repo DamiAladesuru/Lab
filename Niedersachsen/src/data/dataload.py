@@ -3,6 +3,8 @@ import os
 import pickle
 import zipfile
 import geopandas as gpd
+import pandas as pd
+from datetime import datetime as dt
 import math as m
 import logging
 os.chdir("C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen")
@@ -162,15 +164,14 @@ def load_data(loadExistingData=False):
     output_pickle_dir = 'data/interim'
     
     intpath = os.path.join('data', 'interim')
-    existing_file_path = os.path.join(intpath, 'gld.pkl')
+    existing_file_path = os.path.join(intpath, 'gld_20240818.pkl')
     
     if loadExistingData and os.path.isfile(existing_file_path):
-        with open(existing_file_path, 'rb') as f:
-            gld = pickle.load(f)
-            logging.info(f"Loaded existing data from {existing_file_path}")
-            return gld
+        gld = pickle.load(open(existing_file_path, 'rb'))
+        logging.info(f"Loaded existing data from {existing_file_path}")
+        return gld
     else:
-        logging.info(f"Existing data not found at {existing_file_path}. Proceeding with loading and processing new data.")
+        logging.info(f"Proceeding with loading and processing new data.")
         # Load and preprocess data
         data = load_geodata(base_dir, years, specific_file_names)
         data = preprocess_data(data, years)
@@ -216,7 +217,7 @@ def load_data(loadExistingData=False):
         
         
         # Save the combined data to pickle
-        current_date = datetime.now().strftime("%Y%m%d")
+        current_date = dt.now().strftime("%Y%m%d")
         gld_pickle_path = os.path.join(output_pickle_dir, f"gld_{current_date}.pkl")
         gld.to_pickle(gld_pickle_path)
         logging.info(f"Saved processed data to {gld_pickle_path}")
@@ -227,6 +228,6 @@ def load_data(loadExistingData=False):
 
 #
 if __name__ == '__main__':
-    loadExistingData = False
+    loadExistingData = True
     gld = load_data(loadExistingData)
 

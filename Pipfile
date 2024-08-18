@@ -4,22 +4,15 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-fiona = "*"
-shap = "*"
 pandas = "*"
+shapely = "*"
+seaborn = "*"
 matplotlib = "*"
 geopandas = "*"
-geemap = "*"
-pyogrio = "*"
-seaborn = "*"
-xgboost = "*"
 ipykernel = "*"
-dtale = "*"
-qgrid = "*"
-mplleaflet = "*"
-shapely = "*"
-geopy = "*"
-rasterio = "*"
+joblib = "*"
+scikit-image = "*"
+opencv-python = "*"
 
 [dev-packages]
 

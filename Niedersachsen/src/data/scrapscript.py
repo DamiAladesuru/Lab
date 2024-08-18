@@ -306,3 +306,30 @@ filtered_with_changes = filtered_sorted.groupby('CELLCODE').apply(lambda group: 
 #sort df by year and cellcode
 df = df.sort_values(['year', 'CELLCODE']).reset_index(drop=True)
 df.head()
+
+# %%
+A = [3.966520663, 3.915786592, 2.46095189610]
+B = [1.262284263, 0.91593901, 0.87920056, 0.84313962, 0.82556731, 0.820969759, 0.807938127, 0.717939697,
+0.677999382,
+0.605374267,
+0.591208463,
+0.574074118,
+0.478438015]
+
+# %% calculate standard deviation of A
+import numpy as np
+std_B = np.std(B)
+std_B
+
+
+
+# %%
+C = [1.940063796, 2.159002669, 2.044677085, 1.838828238, 1.968638347, 1.922985713, 2.092817044, 2.149628204,
+    2.016179699, 2.234000725, 2.321445948, 6.224062871, 3.654482651]
+std_C = np.std(C)
+std_C
+# %%
+D = [1.46916628, 1.509435417, 1.524811181]
+std_D = np.std(D)
+std_D
+# %%
