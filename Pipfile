@@ -13,6 +13,10 @@ ipykernel = "*"
 joblib = "*"
 scikit-image = "*"
 opencv-python = "*"
+geopy = "*"
+folium = "*"
+plotly = "*"
+nbformat = "*"
 
 [dev-packages]
 

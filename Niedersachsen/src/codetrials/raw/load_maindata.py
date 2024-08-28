@@ -1,0 +1,468 @@
+# %%
+import geopandas as gpd
+import shapely as sh
+from shapely import wkb
+from shapely.geometry import Polygon
+import fiona
+import pyogrio
+import pandas as pd
+import os 
+import zipfile
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pickle
+import math as m
+
+# %% Set the current working directory
+os.chdir('C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen')
+# Print the current working directory to verify
+print(os.getcwd())
+
+# %% Load data
+# Define the base path to load data
+base_path = "N:/ds/data/Niedersachsen/Niedersachsen/Needed/schlaege_"
+# Define the years you want to load
+years = range(2012, 2024)
+# Create a dictionary to store the data
+data = {}
+# Define the specific file names you want to load
+specific_file_names = ["Schlaege_mitNutzung_2012.shp", "Schlaege_mitNutzung_2013.shp", "Schlaege_mitNutzung_2014.shp", "Schlaege_mitNutzung_2015.shp", "schlaege_2016.shp", "schlaege_2017.shp", "schlaege_2018.shp", "schlaege_2019.shp", "schlaege_2020.shp", "ud_21_s.shp", "Schlaege_2022_ende_ant.shp", "UD_23_S_AKT_ANT.shp"] #list of file names to be loaded
+# Load the data for each year
+for year in years:
+    zip_file_path = f"{base_path}{year}.zip"
+        
+    # Open the zip file
+    with zipfile.ZipFile(zip_file_path, 'r') as zip_ref: #creates Zipfile object in read mode and assigns it to zip_ref
+        # Get the list of file names in the zip file
+        file_names = zip_ref.namelist()
+        
+        # Check if the specific files you want to open are in the list
+        for specific_file_name in specific_file_names:
+            if specific_file_name in file_names:
+                # If the file exists, read it with geopandas
+                data[year] = gpd.read_file(f"/vsizip/{zip_file_path}/{specific_file_name}")
+            else:
+                print(f"File {specific_file_name} does not exist in {zip_file_path}.")
+
+
+# %% CRS for each year
+for year in years:
+    print(f"CRS for {year}: {data[year].crs}")
+
+# %% info for each year
+for year in years:
+    print(f"{year}: {data[year].info()}")
+
+######################################
+#Preprocessing
+# %% Define the old and new names for the year column
+old_names = ['JAHR', 'ANTJAHR', 'ANTRAGSJAH']
+new_name = 'year'
+# Change the column name for each dataframe
+for year in years:
+    for old_name in old_names:
+        if old_name in data[year].columns:
+            data[year] = data[year].rename(columns={old_name: new_name})
+
+# %% change year data type
+for year in years:
+    data[year]['year'] = pd.to_datetime(data[year]['year'], format='%Y').dt.year.astype(int)
+    
+# %% Delete unneeded columns from the dataframes
+# Define the column name you want to delete
+column_names = ['Shape_Area', 'Shape_Leng', 'SHAPE_Leng', 'SHAPE_Area', 'SCHLAGNR', 'SCHLAGBEZ', 'FLAECHE', 'AKT_FL', 'AKTUELLEFL']
+# Delete the columns for each dataframe
+for year in years:
+    for column_name in column_names:
+        if column_name in data[year].columns:
+            data[year] = data[year].drop(columns=column_name)
+
+# %% Define the old and new names for kultur code column
+old_names = ['KC_GEM', 'KC_FESTG', 'KC', 'NC_FESTG', 'KULTURCODE']
+new_name = 'kulturcode'
+# Change the column name for each dataframe
+for year in years:
+    for old_name in old_names:
+        if old_name in data[year].columns:
+            data[year] = data[year].rename(columns={old_name: new_name})
+            
+# %% Iterate over each year to check if all unique kulturcode values are numbers or if there are characters
+for year in years:
+    # Extract unique kulturcode values for the current year
+    unique_kulturcodes = data[year]['kulturcode'].unique()
+    # Check for non-numeric kulturcode values
+    non_numeric_kulturcodes = [code for code in unique_kulturcodes if not str(code).replace('.', '', 1).isdigit()]
+    
+    if non_numeric_kulturcodes:
+        print(f"{year}: Non-numeric kulturcode values found: {non_numeric_kulturcodes}")
+    else:
+        print(f"{year}: All kulturcode values are numeric.")
+        
+        
+# %% Assuming all kulturcode values are numeric
+for year in years:
+    # Convert kulturcode to integer
+    data[year]['kulturcode'] = data[year]['kulturcode'].astype(int)
+    print(f"{year}: kulturcode data type is now {data[year]['kulturcode'].dtype}")
+
+# %% info for each year to verify modification
+for year in years:
+    print(f"{year}: {data[year].info()}")
+
+# %% Head (first few rows) for each year
+for year in years:
+    print(f"{year}: {data[year].head()}")
+
+# %% Check if FLIK is dupicated within each year
+for year in years:
+    print(f"{year}: {data[year][['year', 'FLIK']].duplicated().sum()}")
+#yes, there are duplicates so we can not use this as unique identifier  
+# %% So, we reset the index and add the old index as a new column 'id' which could be used to search for duplicated entries after joining land
+for year in years:
+    data[year] = data[year].reset_index().rename(columns={'index': 'id'})
+    print(f"{year}: {data[year][['year', 'id']].duplicated().sum()}")
+    #no duplicates
+
+
+#########################################################################
+#remove fields outside of land boundary and append data for all years
+#########################################################################
+# %% Extract the ZIP file containing the administrative shapefiles
+# Path to the ZIP file
+#zip_path = 'C:/Users/aladesuru/Downloads/verwaltungseinheiten.zip'
+# Target directory where files will be extracted
+target_directory = 'N:/ds/data/Niedersachsen/verwaltungseinheiten'
+# Create the target directory if it doesn't exist
+#if not os.path.exists(target_directory):
+   # os.makedirs(target_directory)
+# Open the ZIP file and extract its contents
+#with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+    #zip_ref.extractall(target_directory)
+
+# %% Load Land boundary 
+land = gpd.read_file(os.path.join(target_directory, "NDS_Landesflaeche.shp"))
+print(land.head())
+land.info()
+land.crs
+
+# %% join land to data for each year to remove fields outside of land boundary
+for year in years:
+    data[year] = gpd.sjoin(data[year], land, how='inner', predicate='intersects')
+    # remove columns index_right, source, id, name
+    data[year] = data[year].drop(columns=['index_right', 'LAND'])
+    print(f"{year}: {data[year].info()}")
+    
+# %% just to be sure, we check for duplicates after joining land
+for year in years:
+    print(f"{year}: {data[year][['year', 'id']].duplicated().sum()}") # no duplicates created based
+    # on id after joining land
+
+# %% if all looks good and there are no duplicates, we drop id and proceed with appending
+for year in years:
+    data[year] = data[year].drop(columns=['id'])
+    print(f"{year}: {data[year].info()}")
+
+# Append data for all years
+# %% Concatenate all dataframes
+all_years = pd.concat(list(data.values()), ignore_index=True)
+all_years.info()
+
+# %% Save to pickle
+all_years.to_pickle('data/interim/data.pkl')
+
+# %% Load the pickle file
+#PS: this file contains data for all years with fields outside of land boundary removed.
+#if you are starting from here, you can load the file but also load land file from above because it is still
+#needed for further processing
+all_years = pd.read_pickle('data/interim/data.pkl')
+
+# %% check for instances with missing values
+missing_values = all_years[all_years.isnull().any(axis=1)]
+all_years.isnull().any(axis=1).sum()
+# %% if there are missing values less than 1% of data, drop rows with missing values	
+#all_years = all_years.dropna()
+
+# %% 
+# Create columns for geometric measures
+#1. Field area  (m2 and ha) 
+all_years['area_m2'] = all_years.area
+all_years['area_ha'] = all_years['area_m2']*(1/10000)
+#2. Perimeter (m)
+all_years['peri_m'] = all_years.length
+
+# Shape indices
+#3. Simple perimeter to area ratio
+def paratio(p, a):
+    PA = p/a
+    return PA
+all_years['par'] = all_years.apply(lambda row: paratio(row['peri_m'], row['area_m2']), axis=1)
+
+#4. Corrected perimeter to area ratio
+def cparatio(p, a):
+    CPA = (0.282*p)/(m.sqrt(a))
+    return CPA
+all_years['cpar'] = all_years.apply(lambda row: cparatio(row['peri_m'], row['area_m2']), axis=1)
+
+#5. Shape index
+def shapeindex(p, a):
+    SI = p/(2*m.sqrt(m.pi*a))
+    return SI
+all_years['shp_index'] = all_years.apply(lambda row: shapeindex(row['peri_m'], row['area_m2']), axis=1)
+
+#6. Fractal dimension
+def fractaldimension(p, a):
+    FD = (2*m.log(p))/m.log(a)
+    return FD
+all_years['fract'] = all_years.apply(lambda row: fractaldimension(row['peri_m'], row['area_m2']), axis=1)
+
+all_years.head()
+
+
+# %% Save to pickle
+all_years.to_pickle('data/interim/data_withmetrics.pkl')
+
+# %% Load the pickle file
+all_years = pd.read_pickle('data/interim/data_withmetrics.pkl')
+all_years.crs
+
+
+#########################################################################
+#join regional information to grid
+#########################################################################
+# %% Load Landkreis file for regional boundaries
+landkreise = gpd.read_file(os.path.join(target_directory, "NDS_Landkreise.shp"))
+landkreise.info()
+
+#%% Load Germany grid, join to landkreise, confirm using land that no part of land is missing
+# and remove duplicates using largest intersection
+grid = gpd.read_file('data/raw/eea_10_km_eea-ref-grid-de_p_2013_v02_r00')
+grid.plot()
+grid.info()
+grid.crs
+grid=grid.to_crs(all_years.crs)
+grid.crs
+# %%
+grid.head()
+
+# %%
+# create index for grid in order to create grid_landkreise
+grid_ = grid.reset_index().rename(columns={'index': 'id'})
+grid_.info()
+
+# %% join grid and landkreise so that landkreise boundaries filters out grids that are outside of land boundary
+grid_landkreise = gpd.sjoin(grid_, landkreise, how='inner', predicate='intersects')
+grid_landkreise.info()
+grid_landkreise.plot()
+
+# %%
+# Calculate total bounding box for land
+land_total_bounds = land.total_bounds  # [minx, miny, maxx, maxy]
+print(land_total_bounds)
+
+# %% Calculate total bounding box for grid_land
+grid_landkreise_total_bounds = grid_landkreise.total_bounds  # [minx, miny, maxx, maxy]
+print(grid_landkreise_total_bounds)
+
+# %%
+# Compare bounding boxes
+# Check if land's minx >= grid_land's minx and land's miny >= grid_land's miny
+# and land's maxx <= grid_land's maxx and land's maxy <= grid_land's maxy
+if (land_total_bounds[0] >= grid_landkreise_total_bounds[0] and
+    land_total_bounds[1] >= grid_landkreise_total_bounds[1] and
+    land_total_bounds[2] <= grid_landkreise_total_bounds[2] and
+    land_total_bounds[3] <= grid_landkreise_total_bounds[3]):
+    print("All of land is within grid_landkr.")
+else:
+    print("Some parts of land are not within grid_landkr.")
+
+##############################
+# maybe plot this regional map bu it is not necessary
+# %%
+# Check the current CRS
+print(f"Original CRS: {grid_landkreise.crs}")
+# %% Reproject to WGS84
+if grid_landkreise.crs != "EPSG:4326":
+    regions = grid_landkreise.to_crs("EPSG:4326")
+
+# Plot the regions map
+fig, ax = plt.subplots(figsize=(10, 10))
+regions.plot(ax=ax, color='lightgrey', edgecolor='black')
+# Annotate the map with regional district names
+for idx, row in regions.iterrows():
+    # Calculate the centroid of each district
+    centroid = row['geometry'].centroid
+    plt.text(centroid.x, centroid.y, row['LANDKREIS'], fontsize=8, ha='center')
+# Add title and adjust layout
+plt.title('Lower Saxony Regional Districts')
+plt.xlabel('Longitude')
+plt.ylabel('Latitude')
+plt.tight_layout()
+# Show the plot
+plt.show()
+##############################
+
+# %%
+#count unique cellcodes in grid_landkreise
+unique_cellcodes = grid_landkreise['CELLCODE'].nunique()
+print(unique_cellcodes) # 602
+
+#check for duplicated grids in grid_landkreise
+duplicates = grid_landkreise.duplicated('id')
+# Print the number of duplicates
+print(duplicates.sum()) #455
+
+
+#%% --- Create a sample with all double assigned grids which are crossing landkreis borders 
+# and, therefore, are assigned to more than one  landkreise in grid_landkreise.
+double_assigned = grid_landkreise[grid_landkreise.index.isin(grid_landkreise[grid_landkreise.index.duplicated()].index)]
+
+#%%
+# - Delete all double assigned from grid_landkreise
+grid_landkreise = grid_landkreise[~grid_landkreise.index.isin(grid_landkreise[grid_landkreise.index.duplicated()].index)]
+
+
+#%%
+# --- Estimate the largest intersection for each duplicated cellcode with landkreise in the
+#     double assigned sample. Use the unit of ha
+double_assigned['intersection'] = [
+    a.intersection(landkreise[landkreise.index == b].\
+        geometry.values[0]).area/10000 for a, b in zip(
+        double_assigned.geometry.values, double_assigned.index_right
+    )]
+
+#%%
+# --- Sort by intersection area and keep only the  row with the largest intersection
+double_assigned = double_assigned.sort_values(by='intersection').\
+    groupby('id').last().reset_index()
+    
+#%% --- Add the data double_assigned to the grid_landkreise data
+grid_landkreise = pd.concat([grid_landkreise, double_assigned])
+
+#%%
+grid_landkreise.info()
+
+# %%
+# keep only needed columns
+grid_landkreise = grid_landkreise.drop(columns=['id', 'EOFORIGIN', 'NOFORIGIN', 'index_right', 'LK', 'intersection'])
+
+# %% save to pickle
+grid_landkreise.to_pickle('data/interim/grid_landkreise.pkl')
+
+# %% Load from pickle file
+grid_landkreise = pd.read_pickle('data/interim/grid_landkreise.pkl')
+grid_landkreise.crs
+
+#########################################################################
+#join regional_grid information to data
+#########################################################################
+# %% 1. Reset the index and add the old index as a new column 'id' which could be used to search for duplicated entries after joining districts
+all_years = all_years.reset_index().rename(columns={'index': 'id'})
+
+# %% Perform a spatial join to add grid_landkreis information to the all_years data based on the geometry of the data.
+allyears_landkreise = gpd.sjoin(all_years, grid_landkreise, how='left', predicate="intersects")
+allyears_landkreise.info()
+allyears_landkreise.head()
+
+# %% check for instances with missing values
+missing_ = allyears_landkreise[allyears_landkreise.isnull().any(axis=1)]
+allyears_landkreise.isnull().any(axis=1).sum() #0
+
+# %% Check for duplicates in the 'identifier' column
+duplicates = allyears_landkreise.duplicated('id')
+# Print the number of duplicates
+print(duplicates.sum()) #486601
+
+#%% if there are duplicates, drop them
+# --- Create a sample with all double assigned polygons from allyears_landkreise, which are 
+#     crossing landkreis borders and, therefore, are assigned to more than one
+#     landkreise.
+double = allyears_landkreise[allyears_landkreise.index.isin(allyears_landkreise[allyears_landkreise.index.duplicated()].index)]
+
+#%%
+# - Delete all double assigned polygons from data
+allyears_landkreise = allyears_landkreise[~allyears_landkreise.index.isin(allyears_landkreise[allyears_landkreise.index.duplicated()].index)]
+
+#%%
+# --- Estimate the largest intersection for each polygon with a duplicated landkreise in the
+#     double landkreis sample. Use the unit of ha.
+double['intersection'] = [
+    a.intersection(grid_landkreise[grid_landkreise.index == b].\
+      geometry.values[0]).area/10000 for a, b in zip(
+       double.geometry.values, double.index_right
+    )]
+
+#%%
+# --- Sort by intersection area and keep only the  row with the largest intersection.
+double = double.sort_values(by='intersection').\
+         groupby('id').last().reset_index()
+
+#%%
+# --- Add the data double_landkreis to the allyears_landkreise data and name it allyears_districts
+allyears_districts = pd.concat([allyears_landkreise,double])
+allyears_districts.info()
+
+#%%
+# --- Only keep needed columns
+gld = allyears_districts.drop(columns=['id', 'index_right', 'intersection'])
+gld.reset_index(drop=True, inplace=True)
+gld.info()
+
+
+# %% Save file to pickle and parquet
+gld.to_pickle('data/interim/gld.pkl')
+#data loading and preprocessing ends here
+##############################################################################
+
+#Quickly visualize the geospatial distribution of the data
+# %%
+# Plotting gld
+gld[gld['year'] == 2012].plot(figsize=(10, 6))  # Adjust alpha for transparency as needed
+plt.title('Geospatial Distribution in 2012')
+plt.show()
+
+gld[gld['year'] == 2013].plot(figsize=(10, 6))
+plt.title('Geospatial Distribution in 2013')
+plt.show()
+
+gld[gld['year'] == 2014].plot(figsize=(10, 6)) 
+plt.title('Geospatial Distribution in 2014')
+plt.show()
+
+gld[gld['year'] == 2015].plot(figsize=(10, 6))
+plt.title('Geospatial Distribution in 2015')
+plt.show()
+
+gld[gld['year'] == 2016].plot(figsize=(10, 6))
+plt.title('Geospatial Distribution in 2016')
+plt.show()
+
+gld[gld['year'] == 2017].plot(figsize=(10, 6))
+plt.title('Geospatial Distribution in 2017')
+plt.show()
+
+gld[gld['year'] == 2018].plot(figsize=(10, 6))
+plt.title('Geospatial Distribution in 2018')
+plt.show()
+
+# Plotting gld
+gld[gld['year'] == 2019].plot(figsize=(10, 6))
+plt.title('Geospatial Distribution in 2019')
+plt.show()
+
+gld[gld['year'] == 2020].plot(figsize=(10, 6))
+plt.title('Geospatial Distribution in 2020')
+plt.show()
+
+gld[gld['year'] == 2021].plot(figsize=(10, 6))
+plt.title('Geospatial Distribution in 2021')
+plt.show()
+
+gld[gld['year'] == 2022].plot(figsize=(10, 6))
+plt.title('Geospatial Distribution in 2022')
+plt.show()
+
+gld[gld['year'] == 2023].plot(figsize=(10, 6))
+plt.title('Geospatial Distribution in 2023')
+plt.show()
+
+

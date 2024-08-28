@@ -1,0 +1,65 @@
+import folium
+import folium.plugins
+
+# Initialize a Folium map centered on the mean centroid
+m3 = folium.Map(location=[mean_lat, mean_lon], zoom_start=10)
+
+# Calculate the global minimum and maximum field sizes
+global_min = gdf_4326['mfs_ha'].min()
+global_max = gdf_4326['mfs_ha'].max()
+
+# Create a single Choropleth layer using the global min and max values
+folium.Choropleth(
+    geo_data=gdf_4326.to_json(),
+    name='Field Size',
+    data=gdf_4326,
+    columns=['id', 'mfs_ha'], 
+    key_on='feature.properties.id',
+    fill_color='YlOrRd',
+    fill_opacity=0.7,
+    line_opacity=0.2,
+    legend_name='Field Size',
+    threshold_scale=[global_min, global_min + (global_max - global_min) / 4, global_min + (global_max - global_min) / 2, global_min + 3 * (global_max - global_min) / 4, global_max]
+).add_to(m3)
+
+# Iterate through each group and add markers for each year
+grouped = gdf_4326.groupby('year')
+
+for year, group in grouped:
+    # Create a marker cluster for the year
+    marker_cluster = folium.plugins.MarkerCluster(name=f'Markers {year}').add_to(m3)
+    
+    for idx, row in group.iterrows():
+        # Create a popup with the CELLCODE and mfs_ha
+        popup = f"CELLCODE: {row['CELLCODE']}<br>Field Size: {row['mfs_ha']} ha"
+
+        # Create a marker at the centroid of the grid cell
+        marker = folium.Marker(location=row['centroid'],
+                               popup=popup,
+                               icon=folium.Icon(color='green', icon='info-sign'))
+
+        # Add the marker to the marker cluster
+        marker.add_to(marker_cluster)
+
+# Add a GeoJson layer for the search functionality
+geojson_layer = folium.GeoJson(
+    gdf_4326.to_json(),
+    name='GeoJson',
+    tooltip=folium.GeoJsonTooltip(fields=['CELLCODE'], aliases=['CELLCODE:'])
+).add_to(m3)
+
+# Add a search control to the map
+folium.plugins.Search(
+    layer=geojson_layer,
+    geom_type='Point',
+    placeholder='Search for CELLCODE',
+    search_label='CELLCODE',
+    collapsed=False,
+    position='topright'  # Move the search bar to the top right corner
+).add_to(m3)
+        
+# Add layer control to toggle between layers
+folium.LayerControl().add_to(m3)
+
+# Save the map to an HTML file
+m3.save('yearly_map_with_cellcode_mfs.html')
