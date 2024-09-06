@@ -65,11 +65,11 @@ def yearly_gen_statistics(gld):
         peri_m_50=('peri_m', lambda x: np.percentile(x, 50)),
         peri_m_75=('peri_m', lambda x: np.percentile(x, 75)),
                     
-        cpar_mean=('cpar', 'mean'),
-        cpar_median=('cpar', 'median'),
-        cpar_25=('cpar', lambda x: np.percentile(x, 25)),
-        cpar_50=('cpar', lambda x: np.percentile(x, 50)),
-        cpar_75=('cpar', lambda x: np.percentile(x, 75)),
+        par_mean=('par', 'mean'),
+        par_median=('par', 'median'),
+        par_25=('par', lambda x: np.percentile(x, 25)),
+        par_50=('par', lambda x: np.percentile(x, 50)),
+        par_75=('par', lambda x: np.percentile(x, 75)),
                                                                 
         cpar2_mean=('cpar2', 'mean'),
         cpar2_median=('cpar2', 'median'),
@@ -163,7 +163,23 @@ def create_griddf(gld):
     ######################################################################
     #Shape
     ######################################################################
-    # corrected perimeter to area ratio
+    # perimeter to area ratio
+    # Sum of par per grid
+    par_sum = gld.groupby(['year', 'CELLCODE'])['par'].sum().reset_index()
+    par_sum.columns = ['year', 'CELLCODE', 'par_sum']
+    griddf = pd.merge(griddf, par_sum, on=['year', 'CELLCODE'])
+
+    # Mean par per grid
+    griddf['mean_par'] = (griddf['par_sum'] / griddf['fields'])
+
+    # Median par per grid
+    griddf['midpar'] = gld.groupby(['year', 'CELLCODE'])['par'].median().reset_index()['par']
+
+    # Standard deviation of par per grids
+    sd_par = gld.groupby(['year', 'CELLCODE'])['par'].std().reset_index()
+    sd_par.columns = ['year', 'CELLCODE', 'sd_par']
+    griddf = pd.merge(griddf, sd_par, on=['year', 'CELLCODE'])
+    
     # Sum of cpar per grid
     cpar_sum = gld.groupby(['year', 'CELLCODE'])['cpar'].sum().reset_index()
     cpar_sum.columns = ['year', 'CELLCODE', 'cpar_sum']
@@ -214,24 +230,24 @@ def create_griddf(gld):
     griddf['grid_par'] = ((griddf['peri_sum'] / griddf['fsm2_sum'])) #compare to mean par 
     
     #LSI
-    griddf['lsi'] = ((0.25 * griddf['peri_sum'] / (griddf['fsm2_sum']**0.5))) #ref. FRAGSTATS help
+    griddf['lsi'] = (0.25 * griddf['peri_sum'] / (griddf['fsm2_sum']**0.5)) #ref. FRAGSTATS help
             
     # Polsby-Popper shape index
     # Mean polspy per grid
-    mean_polspy = gld.groupby(['year', 'CELLCODE'])['polspy'].mean().reset_index()
-    mean_polspy.columns = ['year', 'CELLCODE', 'mean_polspy']
-    griddf = pd.merge(griddf, mean_polspy, on=['year', 'CELLCODE'])
+    #mean_polspy = gld.groupby(['year', 'CELLCODE'])['polspy'].mean().reset_index()
+    #mean_polspy.columns = ['year', 'CELLCODE', 'mean_polspy']
+    #griddf = pd.merge(griddf, mean_polspy, on=['year', 'CELLCODE'])
 
     # Median polspy per grid
-    griddf['midpolspy'] = gld.groupby(['year', 'CELLCODE'])['polspy'].median().reset_index()['polspy']
+    #griddf['midpolspy'] = gld.groupby(['year', 'CELLCODE'])['polspy'].median().reset_index()['polspy']
 
     # Standard deviation of polspy per grid
-    sd_polspy = gld.groupby(['year', 'CELLCODE'])['polspy'].std().reset_index()
-    sd_polspy.columns = ['year', 'CELLCODE', 'sd_polspy']
-    griddf = pd.merge(griddf, sd_polspy, on=['year', 'CELLCODE'])
+    #sd_polspy = gld.groupby(['year', 'CELLCODE'])['polspy'].std().reset_index()
+    #sd_polspy.columns = ['year', 'CELLCODE', 'sd_polspy']
+    #griddf = pd.merge(griddf, sd_polspy, on=['year', 'CELLCODE'])
     
     # grid polspy
-    griddf['grid_polspy'] = ((griddf['fsm2_sum']) / ((griddf['peri_sum'] / 4) ** 2))
+    #griddf['grid_polspy'] = ((griddf['fsm2_sum']) / ((griddf['peri_sum'] / 4) ** 2))
     
       
     return griddf
@@ -276,9 +292,10 @@ def calculate_differences(griddf): #yearly gridcell differences and differences 
     return griddf_ext
 
 # compute mean and median for columns in griddfs_ext. save the results to a csv file
-def compute_mean_median(griddf_ext):
-    # Group by 'year' and calculate the mean and median
-    mean_median = griddf_ext.groupby('year').agg(
+def compute_grid_year_average(griddf_ext):
+    # Group by 'year' and calculate the mean and median for grid year averages
+    grid_year_average = griddf_ext.groupby('year').agg(
+        sum_fields=('fields', 'sum'),
         mean_fields=('fields', 'mean'),
         std_fields = ('fields', 'std'),
         mean_fields_yearly_diff=('fields_yearly_diff', 'mean'),
@@ -338,6 +355,12 @@ def compute_mean_median(griddf_ext):
         mean_fields_ha_diff12=('fields_ha_diff_from_2012', 'mean'),
         median_fields_ha=('fields_ha', 'median'),
         
+        mean_mean_par=('mean_par', 'mean'),
+        std_mean_par = ('mean_par', 'std'),
+        mean_mean_par_yearly_diff=('mean_par_yearly_diff', 'mean'),            
+        mean_mean_par_diff12=('mean_par_diff_from_2012', 'mean'),            
+        median_mean_par=('mean_par', 'median'),
+                
         mean_mean_cpar=('mean_cpar', 'mean'),
         std_mean_cpar = ('mean_cpar', 'std'),
         mean_mean_cpar_yearly_diff=('mean_cpar_yearly_diff', 'mean'),            
@@ -362,22 +385,133 @@ def compute_mean_median(griddf_ext):
         mean_grid_par_diff12=('grid_par_diff_from_2012', 'mean'),
         median_grid_par=('grid_par', 'median'),
 
-        mean_mean_polsby=('mean_polspy', 'mean'),
-        std_mean_polspy = ('mean_polspy', 'std'),
-        mean_mean_polsby_yearly_diff=('mean_polspy_yearly_diff', 'mean'),
-        mean_mean_polsby_diff12=('mean_polspy_diff_from_2012', 'mean'),
-        median_mean_polsby=('mean_polspy', 'median'),
+        #mean_mean_polsby=('mean_polspy', 'mean'),
+        #std_mean_polspy = ('mean_polspy', 'std'),
+        #mean_mean_polsby_yearly_diff=('mean_polspy_yearly_diff', 'mean'),
+        #mean_mean_polsby_diff12=('mean_polspy_diff_from_2012', 'mean'),
+        #median_mean_polsby=('mean_polspy', 'median'),
         
-        mean_grid_polspy=('grid_polspy', 'mean'),
-        std_grid_polspy = ('grid_polspy', 'std'),
-        mean_grid_polspy_yearly_diff=('grid_polspy_yearly_diff', 'mean'),
-        mean_grid_polspy_diff12=('grid_polspy_diff_from_2012', 'mean'),
-        median_grid_polspy=('grid_polspy', 'median'),      
+        #mean_grid_polspy=('grid_polspy', 'mean'),
+        #std_grid_polspy = ('grid_polspy', 'std'),
+        #mean_grid_polspy_yearly_diff=('grid_polspy_yearly_diff', 'mean'),
+        #mean_grid_polspy_diff12=('grid_polspy_diff_from_2012', 'mean'),
+        #median_grid_polspy=('grid_polspy', 'median'),      
 
 
     ).reset_index()
         
-    return mean_median
+    return grid_year_average
+
+import numpy as np
+import pandas as pd
+
+def compute_landkreis_average(griddf_ext):
+    # Group by 'year' and 'LANDKREIS' and calculate the mean and median for grid year and landkreis averages
+    landkreis_average = griddf_ext.groupby(['LANDKREIS', 'year']).agg(
+        sum_fields=('fields', 'sum'),
+        mean_fields=('fields', 'mean'),
+        std_fields=('fields', 'std'),
+        mean_fields_yearly_diff=('fields_yearly_diff', 'mean'),
+        mean_fields_diff12=('fields_diff_from_2012', 'mean'),
+        median_fields=('fields', 'median'),
+        fields_10=('fields', lambda x: np.percentile(x, 10)),
+        fields_25=('fields', lambda x: np.percentile(x, 25)),
+        fields_50=('fields', lambda x: np.percentile(x, 50)),
+        fields_75=('fields', lambda x: np.percentile(x, 75)),
+        fields_90=('fields', lambda x: np.percentile(x, 90)),
+                   
+        mean_group_count=('group_count', 'mean'),
+        mean_group_count_yearly_diff=('group_count_yearly_diff', 'mean'),
+        mean_group_count_diff12=('group_count_diff_from_2012', 'mean'),
+        median_group_count=('group_count', 'median'),
+        
+        mean_fsha_sum=('fsha_sum', 'mean'),
+        mean_fsha_sum_yearly_diff=('fsha_sum_yearly_diff', 'mean'),
+        mean_fsha_sum_diff12=('fsha_sum_diff_from_2012', 'mean'),                
+        median_fsha_sum=('fsha_sum', 'median'),
+        fsha_sum_10=('fsha_sum', lambda x: np.percentile(x, 10)),                        
+        fsha_sum_25=('fsha_sum', lambda x: np.percentile(x, 25)),
+        fsha_sum_50=('fsha_sum', lambda x: np.percentile(x, 50)),
+        fsha_sum_75=('fsha_sum', lambda x: np.percentile(x, 75)),
+        fsha_sum_90=('fsha_sum', lambda x: np.percentile(x, 90)),
+                
+        mean_mfs_ha=('mfs_ha', 'mean'),
+        std_mfs=('mfs_ha', 'std'),
+        mean_mfs_ha_yearly_diff=('mfs_ha_yearly_diff', 'mean'),
+        mean_mfs_ha_diff12=('mfs_ha_diff_from_2012', 'mean'),                
+        median_mfs_ha=('mfs_ha', 'median'),
+        mfs_ha_10=('mfs_ha', lambda x: np.percentile(x, 10)),                        
+        mfs_ha_25=('mfs_ha', lambda x: np.percentile(x, 25)),
+        mfs_ha_50=('mfs_ha', lambda x: np.percentile(x, 50)),
+        mfs_ha_75=('mfs_ha', lambda x: np.percentile(x, 75)),
+        mfs_ha_90=('mfs_ha', lambda x: np.percentile(x, 90)),
+        
+        mean_peri_sum=('peri_sum', 'mean'),
+        mean_peri_sum_yearly_diff=('peri_sum_yearly_diff', 'mean'),
+        mean_peri_sum_diff12=('peri_sum_diff_from_2012', 'mean'),                
+        median_peri_sum=('peri_sum', 'median'),
+        peri_sum_10=('peri_sum', lambda x: np.percentile(x, 10)),                        
+        peri_sum_25=('peri_sum', lambda x: np.percentile(x, 25)),
+        peri_sum_50=('peri_sum', lambda x: np.percentile(x, 50)),
+        peri_sum_75=('peri_sum', lambda x: np.percentile(x, 75)),
+        peri_sum_90=('peri_sum', lambda x: np.percentile(x, 90)),
+
+        mean_mperi=('mperi', 'mean'),
+        mean_mperi_yearly_diff=('mperi_yearly_diff', 'mean'),
+        mean_mperi_diff12=('mperi_diff_from_2012', 'mean'),
+        median_mperi=('mperi', 'median'), 
+        
+        mean_fields_ha=('fields_ha', 'mean'),
+        std_fields_ha=('fields_ha', 'std'),
+        mean_fields_ha_yearly_diff=('fields_ha_yearly_diff', 'mean'),
+        mean_fields_ha_diff12=('fields_ha_diff_from_2012', 'mean'),
+        median_fields_ha=('fields_ha', 'median'),
+        
+        mean_mean_par=('mean_par', 'mean'),
+        std_mean_par=('mean_par', 'std'),
+        mean_mean_par_yearly_diff=('mean_par_yearly_diff', 'mean'),            
+        mean_mean_par_diff12=('mean_par_diff_from_2012', 'mean'),            
+        median_mean_par=('mean_par', 'median'),
+                
+        mean_mean_cpar=('mean_cpar', 'mean'),
+        std_mean_cpar=('mean_cpar', 'std'),
+        mean_mean_cpar_yearly_diff=('mean_cpar_yearly_diff', 'mean'),            
+        mean_mean_cpar_diff12=('mean_cpar_diff_from_2012', 'mean'),            
+        median_mean_cpar=('mean_cpar', 'median'),
+        
+        mean_mean_cpar2=('mean_cpar2', 'mean'),
+        std_mean_cpar2=('mean_cpar2', 'std'),
+        mean_mean_cpar2_yearly_diff=('mean_cpar2_yearly_diff', 'mean'),            
+        mean_mean_cpar2_diff12=('mean_cpar2_diff_from_2012', 'mean'),            
+        median_mean_cpar2=('mean_cpar2', 'median'),
+
+        mean_lsi=('lsi', 'mean'),
+        std_lsi=('lsi', 'std'),
+        mean_lsi_yearly_diff=('lsi_yearly_diff', 'mean'),
+        mean_lsi_diff12=('lsi_diff_from_2012', 'mean'),
+        median_lsi=('lsi', 'median'),
+             
+        mean_grid_par=('grid_par', 'mean'),
+        std_grid_par=('grid_par', 'std'),
+        mean_grid_par_yearly_diff=('grid_par_yearly_diff', 'mean'),
+        mean_grid_par_diff12=('grid_par_diff_from_2012', 'mean'),
+        median_grid_par=('grid_par', 'median'),
+
+        #mean_mean_polsby=('mean_polspy', 'mean'),
+        #std_mean_polspy=('mean_polspy', 'std'),
+        #mean_mean_polsby_yearly_diff=('mean_polspy_yearly_diff', 'mean'),
+        #mean_mean_polsby_diff12=('mean_polspy_diff_from_2012', 'mean'),
+        #median_mean_polsby=('mean_polspy', 'median'),
+        
+        #mean_grid_polspy=('grid_polspy', 'mean'),
+        #std_grid_polspy=('grid_polspy', 'std'),
+        #mean_grid_polspy_yearly_diff=('grid_polspy_yearly_diff', 'mean'),
+        #mean_grid_polspy_diff12=('grid_polspy_diff_from_2012', 'mean'),
+        #median_grid_polspy=('grid_polspy', 'median'),      
+
+    ).reset_index()
+        
+    return landkreis_average
 
 def create_gdf(griddf_ext):
     # Load Germany grid_landkreise to obtain the geometry
@@ -406,9 +540,9 @@ def process_descriptives():
     gld = pd.merge(gld, kulturcode_mastermap, on='kulturcode', how='left')
     gld = gld.drop(columns=['kulturart_sourceyear'])
     gld = square_cpar(gld)
-    gld = field_polspy(gld)
-    gld = bounding_box(gld)
-    gld = bbox_dimensions(gld)
+    #gld = field_polspy(gld)
+    #gld = bounding_box(gld)
+    #gld = bbox_dimensions(gld)
             
     # Grid level data processing
     ####################################################   
@@ -429,13 +563,22 @@ def process_descriptives():
         print(f"Saved griddf_extended to {griddf_ext_filename}")
 
 
-    mean_median = compute_mean_median(griddf_ext)
-    print(f"Info for mean_median:")
-    print(mean_median.info())
-    mean_median_filename = os.path.join(output_dir, f'mean_median.csv')
-    if not os.path.exists(mean_median_filename):
-        mean_median.to_csv(mean_median_filename, index=False)
-        print(f"Saved mean_median to {mean_median_filename}")
+    grid_year_average = compute_grid_year_average(griddf_ext)
+    print(f"Info for grid_year_average:")
+    print(grid_year_average.info())
+    grid_year_average_filename = os.path.join(output_dir, f'grid_year_average.csv')
+    if not os.path.exists(grid_year_average_filename):
+        grid_year_average.to_csv(grid_year_average_filename, index=False)
+        print(f"Saved grid_year_average to {grid_year_average_filename}")
+            
+
+    landkreis_average = compute_landkreis_average(griddf_ext)
+    print(f"Info for landkreis_average:")
+    print(landkreis_average.info())
+    landkreis_average_filename = os.path.join(output_dir, f'landkreis_average.csv')
+    if not os.path.exists(landkreis_average_filename):
+        landkreis_average.to_csv(landkreis_average_filename, index=False)
+        print(f"Saved landkreis_average to {landkreis_average_filename}")
             
     gridgdf = create_gdf(griddf_ext)
     gridgdf_filename = os.path.join('data', 'interim', f'gridgdf__.pkl')
@@ -458,12 +601,12 @@ def process_descriptives():
         print(f"Saved gen_stats to {filename}")
 
             
-    return gld, griddf, griddf_ext, mean_median, gridgdf
+    return gld, griddf, griddf_ext, grid_year_average, landkreis_average, gridgdf
 
 
 # sample usage of the function process_descriptives
 
 
 if __name__ == '__main__':
-    gld, griddf, griddf_ext, mean_median, gridgdf = process_descriptives()
+    gld, griddf, griddf_ext, grid_year_average, landkreis_average, gridgdf = process_descriptives()
     print("Done!")
