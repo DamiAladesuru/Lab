@@ -442,7 +442,7 @@ def add_codes_fromb4_15(unique_dropped_codes_df, kulturcode_map1):
     
     return kulturcode_map2
 
-def categories(df, column_name):
+def category1(df, column_name):
     # Define the categories that should be labeled as 'environmental'
     environmental_categories = [
         'stilllegung/aufforstung', 
@@ -456,9 +456,35 @@ def categories(df, column_name):
         lambda x: 'environmental' if x in environmental_categories else 'others'
     )
     
+    return df
+
+def category2(df, column_name):
+    # Define the categories that should be labeled as 'environmental'
+    environmental_categories = [
+        'stilllegung/aufforstung', 
+        'greening / landschaftselemente', 
+        'aukm', 
+        'aus der produktion genommen'
+    ]
+    
+    sonstige_flaechen = [
+        'sonstige flächen',
+        'andere handelsgewächse',
+        'zierpflanzen',
+        'energiepflanzen'
+    ]
+
+    leguminosen = [
+        'leguminosen',
+        'eiweißpflanzen'
+    ]
+
     # Create column 'category2'
     df['category2'] = df[column_name].apply(
-        lambda x: 'environmental' if x in environmental_categories else x
+        lambda x: 'environmental' if x in environmental_categories \
+            else 'sonstige flächen' if x in sonstige_flaechen \
+            else 'leguminosen' if x in leguminosen \
+            else x
     )
     
     return df
@@ -490,7 +516,8 @@ def process_kulturcode():
         unique_dropped_codes_df = collect_unique_dropped_codes(dropped_codes)
         kulturcode_mastermap = add_codes_fromb4_15(unique_dropped_codes_df, kulturcode_map1)
         check_kulturcode_presence(kulturcode_act, kulturcode_mastermap)
-        kulturcode_mastermap = categories(kulturcode_mastermap, 'Gruppe')
+        kulturcode_mastermap = category1(kulturcode_mastermap, 'Gruppe')
+        kulturcode_mastermap = category2(kulturcode_mastermap, 'Gruppe')
         
         # Save to CSV
         kulturcode_mastermap.to_csv(csv_path, encoding='windows-1252', index=False)
@@ -500,3 +527,4 @@ def process_kulturcode():
 # %%
 if __name__ == '__main__':
    kulturcode_mastermap = process_kulturcode()
+# %%

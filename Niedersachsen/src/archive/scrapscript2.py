@@ -399,3 +399,388 @@ print("mean_cpar2 by year:", mean_cpar2_dict)
 print("lsi by year:", lsi_dict)
 print("lsidiff by year:", lsidiff_dict)
 # %%
+gridgdf
+
+# %% clipping and plotting polygons within their grid cells
+
+# Ensure each polygon appears within its grid cell
+clipped_polygons = []
+
+# Iterate over each grid cell
+for idx, grid_cell in grid_landkreise.iterrows():
+    # Get the grid cell code
+    cell_code = grid_cell['CELLCODE']
+    
+    # Filter polygons that belong to this grid cell
+    polygons_in_cell = gld[gld['CELLCODE'] == cell_code]
+    
+    # Clip polygons to the grid cell
+    clipped = gpd.clip(polygons_in_cell, grid_cell.geometry)
+    clipped_polygons.append(clipped)
+
+# Combine all clipped polygons into a single GeoDataFrame
+clipped_polygons_gdf = gpd.GeoDataFrame(pd.concat(clipped_polygons, ignore_index=True), crs=gld.crs)
+
+# save the clipped polygons to pickle
+#clipped_polygons_gdf.to_pickle('data/interim/clipped_polygons.pkl')
+
+# Load the clipped polygons from pickle
+#clipped_polygons_gdf = pd.read_pickle('data/interim/clipped_polygons.pkl')
+
+
+# %%
+# Plot grid cells
+fig, ax = plt.subplots(figsize=(10, 10))
+grid_landkreise.boundary.plot(ax=ax, color='black', linewidth=1)  # Plot grid boundaries
+
+# Plot clipped polygons
+clipped_polygons_gdf.plot(ax=ax, column='CELLCODE', cmap='Set3', edgecolor='black', alpha=0.7)
+
+plt.title('Polygons within their 10km Grid Cells')
+plt.xlabel('Longitude')
+plt.ylabel('Latitude')
+plt.show()
+
+
+######################################################################
+#calculate diff from 2012 function but I don't use that anymore
+# %%
+def calculate_differences(griddfs):
+    # Create a copy of the original dictionary to avoid altering the original data
+    griddfs_ext = {key: df.copy() for key, df in griddfs.items()}
+    
+    for key, df in griddfs_ext.items():
+        # Ensure the data is sorted by 'CELLCODE' and 'year'
+        df.sort_values(by=['CELLCODE', 'year'], inplace=True)
+        numeric_columns = df.select_dtypes(include='number').columns
+
+        # Calculate yearly difference for numeric columns
+        for col in numeric_columns:
+            df[f'{col}_yearly_diff'] = df.groupby('CELLCODE')[col].diff().fillna(0)
+
+        # Calculate difference relative to the year 2012
+        if 2012 in df['year'].values:
+            # Create a DataFrame for 2012 values
+            df_2012 = df[df['year'] == 2012][['CELLCODE'] + list(numeric_columns)]
+            df_2012 = df_2012.rename(columns={col: f'{col}_2012' for col in numeric_columns})
+            
+            # Merge the 2012 values back to the original DataFrame
+            df = pd.merge(df, df_2012, on='CELLCODE', how='left')
+
+            # Calculate the difference from 2012 for each numeric column
+            for col in numeric_columns:
+                df[f'{col}_diff_from_2012'] = df[col] - df[f'{col}_2012']
+
+            # Drop the temporary 2012 columns
+            df.drop(columns=[f'{col}_2012' for col in numeric_columns], inplace=True)
+        
+        # Update the dictionary with the modified DataFrame
+        griddfs_ext[key] = df
+
+    return griddfs_ext
+
+griddfs_ext = calculate_differences(griddfs)
+for key, df in griddfs_ext.items():
+    print(f"Info for griddf_{key}:")
+    print(df.info())
+    griddf_ext_filename = os.path.join(output_dir, f'griddf_{key}_extended.csv')#_{current_date}
+    if not os.path.exists(griddf_ext_filename):
+        df.to_csv(griddf_ext_filename, encoding='windows-1252', index=False)
+        print(f"Saved griddf_{key}_extended to {griddf_ext_filename}")
+        
+        
+######################################################################################
+# %%
+import os
+import pandas as pd
+from shapely.geometry import Polygon
+import seaborn as sns
+import matplotlib.pyplot as plt
+# %%
+os.chdir('C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen')
+
+from src.analysis_and_models import describe_new
+
+gld, griddf, griddf_ext, grid_year_average, gridgdf = describe_new.process_descriptives()
+
+
+# Load the clipped polygons from pickle
+#clipped_polygons_gdf = pd.read_pickle('data/interim/clipped_polygons.pkl')
+
+# %%
+griddf_ext['PARsq'] = griddf_ext['grid_par']/((griddf_ext['lsi'])**2)
+
+# %%
+griddf_ext['lsisq'] = griddf_ext['lsi']**2
+
+ # %%
+# Filter rows where there is less than 100 fields
+outliers_df = griddf_ext[griddf_ext['fields'] < 100]
+
+#remove the outliers
+griddf_ext = griddf_ext[~griddf_ext['fields'].isin(outliers_df['fields'])]
+
+# fields 100 - 200 - subset for where fields is less than or equal 200
+fields200 = griddf_ext[griddf_ext['fields'] <= 200]
+
+# %% 
+def get_extreme_rows_by_year(df, metrics):
+    """
+    Groups the DataFrame by year and gets the rows with the minimum and maximum values for the specified metrics.
+
+    Parameters:
+    df (DataFrame): The DataFrame containing the data.
+    metrics (list): A list of column names to find the minimum and maximum values for each year.
+
+    Returns:
+    dict: A dictionary containing DataFrames with the minimum and maximum rows for each metric.
+    """
+    result = {}
+    
+    for metric in metrics:
+        # Find the minimum and maximum values for the metric for each year
+        min_metric = df.groupby('year')[metric].transform('min')
+        max_metric = df.groupby('year')[metric].transform('max')
+        
+        # Filter the DataFrame to get the rows with the minimum and maximum values for the metric for each year
+        min_metric_rows = df[df[metric] == min_metric]
+        max_metric_rows = df[df[metric] == max_metric]
+        
+        # Store the results in the dictionary
+        result[f'min_{metric}_rows'] = min_metric_rows
+        result[f'max_{metric}_rows'] = max_metric_rows
+    
+    return result
+
+# Usage
+metrics = ['mean_cpar2', 'lsi', 'mean_par', 'grid_par']
+extreme_rows = get_extreme_rows_by_year(fields200, metrics)
+
+# Accessing the results
+min_mean_cpar_rows = extreme_rows['min_mean_cpar2_rows']
+max_mean_cpar_rows = extreme_rows['max_mean_cpar2_rows']
+min_lsi_rows = extreme_rows['min_lsi_rows']
+max_lsi_rows = extreme_rows['max_lsi_rows']
+min_mean_par_rows = extreme_rows['min_mean_par_rows']
+max_mean_par_rows = extreme_rows['max_mean_par_rows']
+min_grid_par_rows = extreme_rows['min_grid_par_rows']
+max_grid_par_rows = extreme_rows['max_grid_par_rows']
+
+# %% print year. cellcode and Parsq for the max_lsi_rows
+min_lsi_rows[['year', 'CELLCODE', 'PARsq']]
+ 
+
+
+# %%
+fields2 = gridgdf[gridgdf['fields'] == 2]
+merged = gld.merge(fields2, on=['CELLCODE', 'year'], how='left', indicator=True)
+subsample_df = merged[merged['_merge'] == 'both'].drop(columns=['_merge'])
+
+########################################
+# Plotting the grid cells with polygons
+########################################
+# %%
+# Specify the grid cell code you want to plot
+specific_cell_code = '10kmE422N326'
+year = 2022
+
+# Filter the grid GeoDataFrame for the specific cell code
+specific_grid_cell = gridgdf[(gridgdf['CELLCODE'] == specific_cell_code) & (gridgdf['year'] == year)]
+# Filter the polygons GeoDataFrame for polygons in this grid cell
+polygons_in_specific_cell = gld[(gld['CELLCODE'] == specific_cell_code) & (gld['year'] == year)]
+
+# Create the plot
+fig, ax = plt.subplots(figsize=(10, 10))
+# Plot the grid cell boundary
+specific_grid_cell.boundary.plot(ax=ax, color='black', linewidth=2, label='Grid Cell Boundary')
+# Plot the polygons within the grid cell
+polygons_in_specific_cell.plot(ax=ax, color='skyblue', edgecolor='black', alpha=0.7, label='Polygons')
+
+# Add a title and legend
+plt.title(f'Grid Cell {specific_cell_code} with Polygons')
+plt.xlabel('Longitude')
+plt.ylabel('Latitude')
+plt.legend()
+
+# Show the plot
+plt.show()
+
+################################################
+# Plotting the grid cells with polygons for a df
+################################################
+# %%
+def plot_grid_cells_with_polygons_from_df(gridgdf, gld, cell_year_df):
+    """
+    Plots the specified grid cells and their polygons for given years from a DataFrame.
+
+    Parameters:
+    gridgdf (GeoDataFrame): The GeoDataFrame containing the grid cells.
+    gld (GeoDataFrame): The GeoDataFrame containing the polygons.
+    cell_year_df (DataFrame): A DataFrame containing 'CELLCODE' and 'year' columns.
+    """
+    for _, row in cell_year_df.iterrows():
+        cell_code = row['CELLCODE']
+        year = row['year']
+        
+        # Filter the grid GeoDataFrame for the specific cell code and year
+        specific_grid_cell = gridgdf[(gridgdf['CELLCODE'] == cell_code) & (gridgdf['year'] == year)]
+        # Filter the polygons GeoDataFrame for polygons in this grid cell and year
+        polygons_in_specific_cell = gld[(gld['CELLCODE'] == cell_code) & (gld['year'] == year)]
+
+        # Create the plot
+        fig, ax = plt.subplots(figsize=(10, 10))
+        # Plot the grid cell boundary
+        specific_grid_cell.boundary.plot(ax=ax, color='black', linewidth=2, label='Grid Cell Boundary')
+        # Plot the polygons within the grid cell
+        polygons_in_specific_cell.plot(ax=ax, color='skyblue', edgecolor='black', alpha=0.7, label='Polygons')
+
+        # Add a title and legend
+        plt.title(f'Grid Cell {cell_code} with Polygons for Year {year}')
+        plt.xlabel('Longitude')
+        plt.ylabel('Latitude')
+        plt.legend()
+
+        # Show the plot
+        plt.show()
+
+# Usage
+
+plot_grid_cells_with_polygons_from_df(gridgdf, gld, max_lsi_rows)
+# %%
+def print_and_export_metrics(df, metrics, df_name):
+    """
+    Prints the values for the specified metrics for each combination of year and CELLCODE in each row of the DataFrame as a table,
+    and exports the table to CSV and HTML files.
+
+    Parameters:
+    df (DataFrame): The DataFrame containing the data.
+    metrics (list): A list of column names to print and export.
+    df_name (str): The name of the DataFrame.
+    """
+    # Create a new DataFrame with the specified metrics
+    metrics_df = df[metrics]
+    
+    # Print the DataFrame as a table
+    print(metrics_df.to_string(index=False))
+    
+    output_dir = 'reports/UnderstandingShape/'
+    
+    # Construct filenames with the DataFrame name included
+    csv_filename = f"{output_dir}{df_name}.csv"
+    
+    # Export the DataFrame to a CSV file
+    metrics_df.to_csv(csv_filename, index=False)
+    print(f"Table exported to {csv_filename}")
+
+
+# Usage
+metrics = ['CELLCODE', 'year', 'fields', 'fsha_sum', 'fields_ha', 'mfs_ha', 'peri_sum', 'grid_par', 'lsi', 'mean_cpar2', 'mean_par']
+print_and_export_metrics(min_lsi_rows, metrics, 'min_lsi_rows')
+print_and_export_metrics(max_lsi_rows, metrics, 'max_lsi_rows')
+print_and_export_metrics(min_grid_par_rows, metrics, 'min_grid_par_rows')
+print_and_export_metrics(max_grid_par_rows, metrics, 'max_grid_par_rows')
+print_and_export_metrics(min_mean_par_rows, metrics, 'min_mean_par_rows')
+print_and_export_metrics(max_mean_par_rows, metrics, 'max_mean_par_rows')
+print_and_export_metrics(min_mean_cpar_rows, metrics, 'min_mean_cpar2_rows')
+print_and_export_metrics(max_mean_cpar_rows, metrics, 'max_mean_cpar2_rows')
+
+# %%
+gridgdf['lsi'].max()
+# %%
+griddf_ext.loc[griddf_ext['lsi'] == griddf_ext['lsi'].max(), 'CELLCODE'].values[0]
+griddf_ext.loc[griddf_ext['lsi'] == griddf_ext['lsi'].max(), 'year'].values[0]
+
+# %% Grid level Multi-line plot
+######################################################################## 
+# Set the plot style
+sns.set(style="whitegrid")
+
+# Create a line plot
+plt.figure(figsize=(12, 6))
+
+#plot metrics
+
+sns.lineplot(data=grid_year_average, x='year', y='mean_grid_par_diff12', label='mean grid PAR from 2012', marker='o')
+
+# Add titles and labels
+plt.title('Trend of Yearly Average of FiSC Metrics from 2012 (Grid level)')
+plt.xlabel('Year')
+plt.ylabel('Values')
+plt.legend(title='Metrics')
+
+# Show the plot
+plt.show()
+
+# %%
+######################################################################## 
+# Set the plot style
+sns.set(style="whitegrid")
+
+# Create a line plot
+plt.figure(figsize=(12, 6))
+
+#plot metrics
+
+sns.lineplot(data=grid_year_average, x='year', y='mean_grid_par', label='mean grid PAR', marker='o')
+
+# Add titles and labels
+plt.title('Trend of Yearly Average of FiSC Metrics from 2012 (Grid level)')
+plt.xlabel('Year')
+plt.ylabel('Values')
+plt.legend(title='Metrics')
+
+# Show the plot
+plt.show()
+
+# %% E438N336 Function to add missing year data
+
+def add_missing_year_data(df, cellcode, from_year, to_year):
+    # Filter the rows for the specified CELLCODE and from_year
+    filtered_rows = df[(df['CELLCODE'] == cellcode) & (df['year'] == from_year)]
+    
+    # Create a copy of the filtered rows and update the year to to_year
+    new_rows = filtered_rows.copy()
+    new_rows['year'] = to_year
+    
+    # Concatenate the new rows to the original DataFrame
+    df = pd.concat([df, new_rows], ignore_index=True)
+    
+    return df
+
+# Filter the rows for CELLCODE '10kmE438N336' and year 2016
+cellcode_2016 = '10kmE438N336'
+year_2016 = 2016
+year_2017 = 2017
+
+# Update griddf, griddf_ext, and gridgdf
+griddf = add_missing_year_data(griddf, cellcode_2016, year_2016, year_2017)
+griddf_ext = add_missing_year_data(griddf_ext, cellcode_2016, year_2016, year_2017)
+gridgdf = add_missing_year_data(gridgdf, cellcode_2016, year_2016, year_2017)
+
+
+
+# %%
+from src.analysis_and_models import describe_new
+
+
+
+grid_year_average = describe_new.compute_grid_year_average(griddf_ext)
+print(f"Info for grid_year_average:")
+print(grid_year_average.info())
+grid_year_average_filename = os.path.join(output_dir, f'grid_year_average.csv')
+if not os.path.exists(grid_year_average_filename):
+    grid_year_average.to_csv(grid_year_average_filename, index=False)
+    print(f"Saved grid_year_average to {grid_year_average_filename}")
+        
+
+landkreis_average = describe_new.compute_landkreis_average(griddf_ext)
+print(f"Info for landkreis_average:")
+print(landkreis_average.info())
+landkreis_average_filename = os.path.join(output_dir, f'landkreis_average.csv')
+if not os.path.exists(landkreis_average_filename):
+    landkreis_average.to_csv(landkreis_average_filename, index=False)
+    print(f"Saved landkreis_average to {landkreis_average_filename}")
+# %%
+# get the unique values in gruppe column of gld
+gld['Gruppe'].unique()
+# %%

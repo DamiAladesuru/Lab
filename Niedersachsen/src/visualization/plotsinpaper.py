@@ -1,5 +1,4 @@
 # %%
-# %%
 import os
 import pandas as pd
 from shapely.geometry import Polygon
@@ -10,9 +9,9 @@ os.chdir('C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen')
 
 from src.analysis_and_models import describe_new
 
-from src.visualization import heatmaps
+#from src.visualization import heatmaps
 
-gld, griddf, griddf_ext, mean_median, gridgdf = describe_new.process_descriptives()
+gld, griddf, griddf_ext, grid_year_average, gridgdf = describe_new.process_descriptives()
 # %% Single line plots
 ####################################
 # for data and descriptives section (Figure 1)
@@ -85,8 +84,8 @@ sns.set(style="whitegrid")
 # Create a line plot
 plt.figure(figsize=(12, 6))
 
-sns.lineplot(data=mean_median, x='year', y='mean_mean_cpar', label='Mean MCPAR_circle', marker='o')
-sns.lineplot(data=mean_median, x='year', y='mean_mean_cpar2', label='Mean MCPAR_square', marker='o')
+sns.lineplot(data=grid_year_average, x='year', y='mean_mean_cpar', label='Mean MCPAR_circle', marker='o')
+sns.lineplot(data=grid_year_average, x='year', y='mean_mean_cpar2', label='Mean MCPAR_square', marker='o')
 
 # Add titles and labels
 plt.title('Trend of Yearly Mean of Grid MeanCPAR_circle and Grid MeanCPAR_square')
@@ -288,10 +287,10 @@ sns.set(style="whitegrid")
 plt.figure(figsize=(12, 6))
 
 #plot metrics
-sns.lineplot(data=mean_median, x='year', y='mean_fields_ha_diff12', label='mean Fields/Ha change from 2012', marker='o')
-sns.lineplot(data=mean_median, x='year', y='mean_mfs_ha_diff12', label='mean MFS change from 2012', marker='o')
-sns.lineplot(data=mean_median, x='year', y='mean_mean_cpar2_diff12', label='mean MCPAR change from 2012', marker='o')
-sns.lineplot(data=mean_median, x='year', y='mean_mean_polsby_diff12', label='mean Compactness change from 2012', marker='o')
+sns.lineplot(data=grid_year_average, x='year', y='mean_fields_ha_diff12', label='mean Fields/Ha change from 2012', marker='o')
+sns.lineplot(data=grid_year_average, x='year', y='mean_mfs_ha_diff12', label='mean MFS change from 2012', marker='o')
+sns.lineplot(data=grid_year_average, x='year', y='mean_mean_cpar2_diff12', label='mean MCPAR change from 2012', marker='o')
+sns.lineplot(data=grid_year_average, x='year', y='mean_mean_polsby_diff12', label='mean Compactness change from 2012', marker='o')
 
 # Add titles and labels
 plt.title('Trend of Yearly Average of FiSC Metrics from 2012 (Field level)')
@@ -345,10 +344,10 @@ sns.set(style="whitegrid")
 plt.figure(figsize=(12, 6))
 
 #plot metrics
-sns.lineplot(data=mean_median, x='year', y='mean_fields_ha_diff12', label='mean Fields/Ha change from 2012', marker='o')
-sns.lineplot(data=mean_median, x='year', y='mean_mfs_ha_diff12', label='mean MFS change from 2012', marker='o')
-sns.lineplot(data=mean_median, x='year', y='mean_lsi_diff12', label='mean LSI change from 2012', marker='o')
-sns.lineplot(data=mean_median, x='year', y='mean_grid_polspy_diff12', label='mean Compactness change from 2012', marker='o')
+sns.lineplot(data=grid_year_average, x='year', y='mean_fields_ha_diff12', label='mean Fields/Ha change from 2012', marker='o')
+sns.lineplot(data=grid_year_average, x='year', y='mean_mfs_ha_diff12', label='mean MFS change from 2012', marker='o')
+sns.lineplot(data=grid_year_average, x='year', y='mean_lsi_diff12', label='mean LSI change from 2012', marker='o')
+sns.lineplot(data=grid_year_average, x='year', y='mean_grid_polspy_diff12', label='mean Compactness change from 2012', marker='o')
 
 # Add titles and labels
 plt.title('Trend of Yearly Average of FiSC Metrics from 2012 (Grid level)')

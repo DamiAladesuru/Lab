@@ -108,13 +108,13 @@ for key, df in yearly_desc_dict.items():
 #%%
 #for key, df in griddf_ext.items():
 # Create scatter plot of grid mfs_ha and mean shp index
-sns.scatterplot(data=gridgdf, x='fields_ha', y='lsi', color='purple')
+sns.scatterplot(data=griddf_ext, x='grid_par', y='PARsq', color='purple')
 # Add line of best fit
-sns.regplot(data=gridgdf, x='fields_ha', y='lsi', scatter=False, color='blue')
+sns.regplot(data=griddf_ext, x='grid_par', y='PARsq', scatter=False, color='blue')
 # Set the plot title and labels
-plt.title('Correlation between fields_ha and lsi')
-plt.xlabel('fields_ha')
-plt.ylabel('lsi')
+plt.title('Correlation between grid_par and PARsq')
+plt.xlabel('grid_par')
+plt.ylabel('PARsq')
 # Show the plot
 plt.legend()
 plt.show()
@@ -279,4 +279,60 @@ for key, df in griddfs_ext_no_outliers.items():
     plt.savefig(os.path.join(output_dir, f'mfs_ha_cpar_nooutliers{key}.png'))
 
 
+# %%
+# Set the plot style
+sns.set(style="whitegrid")
+
+# Create a line plot
+plt.figure(figsize=(12, 6))
+
+#plot metrics
+sns.lineplot(data=griddf_ext, x='peri_sum', y='grid_par', label='grid_par', marker='o')
+
+
+# Add titles and labels
+#plt.title('Trend of Yearly Average of FiSC Metrics from 2012 (Grid level)')
+plt.xlabel('peri')
+plt.ylabel('Values')
+plt.legend(title='Metrics')
+
+# Show the plot
+plt.show()
+
+# %%
+# Create scatter plot of grid mfs_ha and mean shp index
+sns.scatterplot(data=griddf_ext, x='peri_sum', y='PARsq', color='purple')
+# Add line of best fit
+sns.regplot(data=griddf_ext, x='peri_sum', y='PARsq', scatter=False, lowess=True, color='blue')
+# Set the plot title and labels
+plt.title('Correlation between peri_sum and PARsq')
+plt.xlabel('peri_sum')
+plt.ylabel('PARsq')
+# Show the plot
+plt.legend()
+plt.show()
+# %%
+# Create scatter plot of grid mfs_ha and mean shp index
+sns.scatterplot(data=griddf_ext, x='peri_sum', y='lsi', color='purple')
+# Add line of best fit
+sns.regplot(data=griddf_ext, x='peri_sum', y='lsi', scatter=False, color='blue')
+# Set the plot title and labels
+plt.title('Correlation between peri_sum and lsi')
+plt.xlabel('peri_sum')
+plt.ylabel('lsi')
+# Show the plot
+plt.legend()
+plt.show()
+# %%
+# Create scatter plot of grid mfs_ha and mean shp index
+sns.scatterplot(data=griddf_ext, x='grid_par', y='fsm2_sum', color='purple')
+# Add line of best fit
+sns.regplot(data=griddf_ext, x='grid_par', y='fsm2_sum', scatter=False, color='blue')
+# Set the plot title and labels
+plt.title('Correlation between grid_par and fsm2_sum')
+plt.xlabel('grid_par')
+plt.ylabel('fsm2_sum')
+# Show the plot
+plt.legend()
+plt.show()
 # %%
