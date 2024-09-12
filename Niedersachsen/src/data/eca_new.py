@@ -471,6 +471,7 @@ def category2(df, column_name):
         'sonstige flächen',
         'andere handelsgewächse',
         'zierpflanzen',
+        'kräuter',
         'energiepflanzen'
     ]
 
