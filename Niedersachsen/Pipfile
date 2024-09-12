@@ -18,6 +18,7 @@ folium = "*"
 plotly = "*"
 nbformat = "*"
 openpyxl = "*"
+scikit-learn = "*"
 
 [dev-packages]
 
