@@ -46,11 +46,11 @@ def get_uni_kulturcode(gld):
 def plot_unique_kulturcode_counts(kulturcode_act):
     output_image_path='reports/Kulturcode/unique_kulturcode_counts_by_year.png'
     # Create a DataFrame to store the year and the count of unique 'kulturcode' values
-    data = {
+    df_year = {
         'year': list(kulturcode_act.keys()),
         'unique_kulturcode_count': [len(kulturcodes) for kulturcodes in kulturcode_act.values()]
     }
-    df_unique_kulturcodes = pd.DataFrame(data)
+    df_unique_kulturcodes = pd.DataFrame(df_year)
 
     # Plot the data
     plt.figure(figsize=(10, 6))
@@ -490,6 +490,44 @@ def category2(df, column_name):
     
     return df
 
+def category3(df, column_name):
+    # categorization based on similar use of crops in reality
+    environmental_categories = [
+        'stilllegung/aufforstung', 
+        'greening / landschaftselemente', 
+        'aukm', 
+        'aus der produktion genommen'
+    ]
+    
+    ffc = [
+        'getreide',
+        'gemüse',
+        'leguminosen',
+        'eiweißpflanzen',
+        'hackfrüchte',
+        'ölsaaten',
+        'kräuter',
+        'ackerfutter'
+    ]
+        
+    others = [
+        'sonstige flächen',
+        'andere handelsgewächse',
+        'zierpflanzen',
+        'mischkultur',
+        'energiepflanzen'
+    ]
+
+    # Create column 'category2'
+    df['category3'] = df[column_name].apply(
+        lambda x: 'environmental' if x in environmental_categories \
+            else 'ffc' if x in ffc \
+            else 'others' if x in others \
+            else x
+    )
+    
+    return df
+
 def process_kulturcode():
     # Define the path to the CSV file
     csv_path = 'data/interim/kulturcode_mastermap.csv'
@@ -519,6 +557,7 @@ def process_kulturcode():
         check_kulturcode_presence(kulturcode_act, kulturcode_mastermap)
         kulturcode_mastermap = category1(kulturcode_mastermap, 'Gruppe')
         kulturcode_mastermap = category2(kulturcode_mastermap, 'Gruppe')
+        kulturcode_mastermap = category3(kulturcode_mastermap, 'Gruppe')
         
         # Save to CSV
         kulturcode_mastermap.to_csv(csv_path, encoding='windows-1252', index=False)
