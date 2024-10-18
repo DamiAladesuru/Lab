@@ -1,0 +1,97 @@
+#######################################
+1. grid_region.py
+#######################################
+1. Load EEA refrence grid file and region data file. Check basic information like attributes, crs, head and point grid to EPSG: 25832
+2. Perform inner spatial join of landkreise file and grid file
+3. Handle duplicates by keeping rows with largest overlap where applicable
+4. Calculate and compare total bounding box to ensure that all regions are in the join outcome.
+
+#######################################
+2. dataload.py
+#######################################
+1. load individual year files from DS data folder and check basic information like attributes, crs, head
+
+2. preprocess data:
+	1. ensure that all years have the same variable names and are stored as the appropriate data types
+	2. reset index and perform inner join land shapefile to remove polygons that are outside Niedersachsen. Test for duplicates using index to ensure there were no duplicates created in the process
+	3. Append (pd.concat) the yearly data together to get one all_years data
+	4. check if there rows with missing value. If such rows exist and are less than one percent of data, drop them.
+	5. calculate geometric measures: area of polygon in m2 and ha, perimeter in m, shape measure(s). We do this at this stage so that we can have these measures unaffected by spatial intersection transformations that we will later do.
+	6. Reset index and spatial join the already created grid_region data to the all years data to merge grid and region information to polygons spatially. This spatial join will create duplicates in areas where multiple grids intersect a polygon thereby fragmenting the polygon. A test of duplicate will show these duplicates.
+	7. Handle duplicates by calculating the grid-polygon intersection area of each fragment of a fragmented polygon and keeping the larger/est one of a fragmented polygon. This retains other attributes of the polygon as originally created but takes the grid_region attribute of the side of the polygon with largest overlap, dropping other duplicates of the polygon.
+3. Drop unneeded columns and save data for further analysis. (I saved as gld.pkl)
+
+########################################
+3. Process Kulturcodes: eca_new.py
+########################################
+1. Load data (i.e. gld.pkl)
+2. extract from data, the unique kulturcodes present in each year. This = kulturcode_act dictionary. You may visualize this
+3. Load the files of kulturcode description for all the years (Kulturart dict). We only have description documents for 2015 to 2023.
+4. Process kulturcode description:
+	1. Let items in kulturcode_act and kulturart dictionaries be dataframes
+	2. create new dictionary of only years 2015 - 2023 from kulturcode_act
+	3. For each year in new dict, merge (left) kulturart data of same key on 'kulturcode' column, then create year column for each df in dict
+	4. Append all yearly kultucode into one kulturcode_map
+5. Adjust for missing information
+	1. 2021 and 2022 are missing 'gruppe' information. Populate these using 2020 data because I checked and the codes and art are pretty the same.
+	2. Check for rows with missing kulturart. Extract this into seperate df. For kulturcode in one year in missing kulturart df, let Kulturart be the Kulturart of thesame kulturcode in the nearest following year. But, if nearest next year is more than 2 years or there is no nearest next year, let kulturart of the kulturecode be the kulturart from the closest previous year.
+	3. Dealing with missing gruppe: Create missing gruppe df. For kulturcode in one year in missing gruppe df, let Gruppe be the Gruppe of thesame kulturcode in the nearest previous year. But, if closest previous year is not available, let Gruppe of the kulturcode be the Gruppe from the closest following year.
+		1. Group by [`kulturcode`](vscode-file://vscode-app/c:/Users/aladesuru/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/code/electron-sandbox/workbench/workbench.html "Go to definition"), [`kulturart`](vscode-file://vscode-app/c:/Users/aladesuru/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/code/electron-sandbox/workbench/workbench.html "Go to definition"), and [`year_missing_gruppe`](vscode-file://vscode-app/c:/Users/aladesuru/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/code/electron-sandbox/workbench/workbench.html "Go to definition").
+		2. For each group, check if there are multiple rows.
+		3. If there are multiple rows, retain only the row with the smallest positive [`year_diff`](vscode-file://vscode-app/c:/Users/aladesuru/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/code/electron-sandbox/workbench/workbench.html "Go to definition").
+		4. If there is only a single row, retain it regardless of the [`year_diff`](vscode-file://vscode-app/c:/Users/aladesuru/AppData/Local/Programs/Microsoft%20VS%20Code/resources/app/out/vs/code/electron-sandbox/workbench/workbench.html "Go to definition") value.
+6. Ensure consistency in group names i.e., let all versions of a group name take the same name. Also fix string and character issues that may be causing same kulturcode to have multiple gruppe or kulturart. Remove double spacing and let all strings be in lowercase.
+7. Handle codes not present in kulturecode_map but are present in kulturcode_act e.g., codes from 2012 to 2014.
+	1. Extract missing kulturcodes and save to excel for examination
+	2. Drop duplicates of the codes
+	3. Assign kulturart and gruppe using the logic of the value of their kulturcode and the gruppe that corresponds to this range of values in 2015 description file. Also, kulturart in this case is the gruppe value because we can't be sure which crop but we can use the value range to guess the gruppe.
+	4. Append codes to kulturcode_map
+8. Create categories of alternate groups for easy visualization and management of extreme values between groups.
+Category 3
+
+| Top level group<br> | Group                                                                                                    |
+| ------------------- | -------------------------------------------------------------------------------------------------------- |
+| Environmental       | AUKM<br>Stillegung<br>Greening & landschaftelement                                                       |
+| Food & fodder crops | Getreide<br>Gemüse<br>Leguminosen<br>Eiweißpflanzen<br>Hackfrüchte<br>Ölsaaten<br>Kräuter<br>Ackerfutter |
+| Permanent grassland | Dauergünland                                                                                             |
+| Perennials          | Dauerkulturen                                                                                            |
+| Others              | Sonstige flächen<br>Andere Handwelsel<br>Mischkultur<br>Zierpfanzen<br>Energiepflanzen                   |
+
+### Comments
+1. Difference in kulturart
+Mostly thesame kulturart across data. Commonly 2015 and 2023 labelling standing in different groups compared to other years' labelling. It is also very common that the difference between the groups of labels is the abbreviation of words, listing of crop varieties withing group and additional descriptions put in parentheses. Overall, 2023 labels seem to be more concise with addition info in  but some years are missing. I will use this as benchmark year. 
+
+2. Total unique kulturcode in data over years = 317
+3. Visualizing change in total land area by crop category shows that Kräuter, Gemuse and some others have a deep lower than others but contributes less than 5 % to the data. Therefore, one option is to group this little contributing groups into one. Another option is to merge groups into top level categories based on the use and relative similarity in reality. This is what category 3 does.
+4. Excel formular for removing colon from group name =SUBSTITUTE(B321,":","")
+5. Kulturcode does not seem to explain drop in data in 2017
+
+########################################
+4. Create griddf/gdf
+########################################
+load pkl file
+create a dataframe (griddf) with unique grid cellcodes for all yeears
+calculate grid level statistics of the data points: counts, sums, mean, sd for area, perimeter, shape index and fractal dimension
+populate griddf with these statistics
+check for null values
+do the descriptives of griddf and safe to csv (griddesc)
+save griddf, convert to gdf and also save
+
+########################################
+5. Descriptive analysis
+########################################
+
+
+
+
+
+
+
+
+
+
+########################################
+    # Grid-Area weight for regional analysis = grid area/ sum of area of
+    # fields in respective grid for each year
+#all_years['area_wght'] = all_years.area / all_years.groupby('year')\
+    # ['area_m2'].transform('sum')

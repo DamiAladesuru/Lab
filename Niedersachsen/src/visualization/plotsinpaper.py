@@ -7,21 +7,22 @@ import matplotlib.pyplot as plt
 
 os.chdir('C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen')
 
-from src.analysis_and_models import describe_new
+from src.analysis_and_models import describe_single as ds
 
 #from src.visualization import heatmaps
 
-gld, griddf, griddf_ext, grid_year_average, gridgdf = describe_new.process_descriptives()
+gld, griddf, griddf_ext, grid_year_average, landkreis_average, category2_average, gridgdf = ds.process_descriptives()
+
 # %% Single line plots
 ####################################
 # for data and descriptives section (Figure 1)
 ####################################
 # Line plot of yearly change in count of fields
-sns.lineplot(data=desc, x='year', y='fieldcsum_diff_2012', color='purple')
+sns.lineplot(data=grid_year_average, x='year', y='sum_fsha_sum', color='teal')
 # Set the plot title and labels
-#plt.title('Trend of Change in Count of Fields from 2012')
+#plt.title('Trend of Total Agricultural Land Area (ha)')
 plt.xlabel('Year')
-plt.ylabel('Difference from 2012 of field count')
+plt.ylabel('Total Agricultural Land Area (ha)')
 # Show the plot
 plt.legend()
 plt.show()
