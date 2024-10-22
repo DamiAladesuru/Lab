@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 os.chdir("C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen")
 
-from src.analysis_and_models import gridgdf_desc as gd
+from src.analysis import gridgdf_desc2 as gd
 
 gld_trimmed, gridgdf = gd.create_gridgdf()
 

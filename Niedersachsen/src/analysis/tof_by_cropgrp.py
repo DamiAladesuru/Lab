@@ -6,12 +6,16 @@ import pandas as pd
 
 os.chdir("C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen")
 
-from src.analysis_and_models import gridgdf_desc2 as gd
+from src.analysis import gridgdf_desc2 as gd
+
+'''
+script plots all metrics like trend_of_fisc script but disaggregates by crop group
+'''
 
 # %% dfs for subsamples
 # Load or create gld_trimmed for subsample loop
-output_dir = 'data/interim'
-gld_trimmed_filename = os.path.join(output_dir, 'gld_wtedges_trimmed.pkl')
+output_dir = 'data/interim/gridgdf'
+gld_trimmed_filename = os.path.join(output_dir, 'gld_trimmed.pkl')
 
 if os.path.exists(gld_trimmed_filename):
     gld_trimmed = pd.read_pickle(gld_trimmed_filename)
@@ -50,7 +54,7 @@ def multimetric_plot(df, title):
     plt.figure(figsize=(12, 6))
 
     #plot metrics
-    #sns.lineplot(df, x='year', y='mean_edges_apercdiff_y1', label='medges', marker='o')
+    sns.lineplot(df, x='year', y='mean_edges_apercdiff_y1', label='medges', marker='o')
     sns.lineplot(df, x='year', y='mfs_ha_apercdiff_y1', label='MFS', marker='o')
     sns.lineplot(df, x='year', y='mperi_apercdiff_y1', label='mperi', marker='o')
     sns.lineplot(df, x='year', y='mean_par_apercdiff_y1', label='MeanPAR', marker='o')

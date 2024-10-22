@@ -1,5 +1,8 @@
 # %%
 import os
+import seaborn as sns
+import matplotlib.pyplot as plt
+
 os.chdir("C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen")
 
 from src.data import dataload as dl
@@ -235,3 +238,46 @@ def test_correlation(df):
 
 # Example usage
 test_correlation(data_trim)
+
+# %%
+# general data descriptive statistics grouped by year
+def yearly_gen_statistics(gld):
+    yearlygen_stats = gld.groupby('year').agg(
+        fields = ('area_ha', 'count'),
+        
+        area_ha_sum=('area_ha', 'sum'),
+        area_ha_mean=('area_ha', 'mean'),
+        area_ha_median=('area_ha', 'median'),
+
+        peri_m_sum=('peri_m', 'sum'),
+        peri_m_mean=('peri_m', 'mean'),
+        peri_m_median=('peri_m', 'median'),
+                    
+        par_sum=('par', 'sum'),
+        par_mean=('par', 'mean'),
+        par_median=('par', 'median'),
+                                
+
+    ).reset_index()
+    
+    yearlygen_stats['fields_ha'] = yearlygen_stats['fields'] / yearlygen_stats['area_ha_sum']
+
+    return yearlygen_stats
+
+ygs = yearly_gen_statistics(data)
+#ygs1 = yearly_gen_statistics(data_trim)
+
+# %%
+# Create line plot of yearly sum of all field areas or any other ygs/ygs1 column
+sns.set_style("whitegrid")
+sns.set_context("talk")
+sns.set_palette("colorblind")
+
+fig, ax = plt.subplots(figsize=(10, 6))
+sns.lineplot(data=ygs, x='year', y='area_ha_sum', color='purple', marker='o', ax=ax)
+ax.set_title('Yearly sum of all field areas (Trimmed)')
+ax.set_ylabel('Area (ha)')
+ax.set_xlabel('Year')
+plt.show()
+
+# %%

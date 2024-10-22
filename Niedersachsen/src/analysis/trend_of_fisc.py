@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 os.chdir("C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen")
 
-from src.analysis_and_models import gridgdf_desc2 as gd
+from src.analysis import gridgdf_desc2 as gd
 
 ''' This script is used to analyze the trend of field metrics over time without subsampling.'''
 
@@ -27,7 +27,7 @@ def multimetric_plot(df, title):
     plt.figure(figsize=(12, 6))
 
     #plot metrics
-    sns.lineplot(df, x='year', y='medges_apercdiff_y1', label='medges', marker='o')
+    #sns.lineplot(df, x='year', y='medges_apercdiff_y1', label='medges', marker='o')
     sns.lineplot(df, x='year', y='mfs_ha_apercdiff_y1', label='MFS', marker='o')
     sns.lineplot(df, x='year', y='mperi_apercdiff_y1', label='mperi', marker='o')
     sns.lineplot(df, x='year', y='mean_par_apercdiff_y1', label='MeanPAR', marker='o')
@@ -58,8 +58,8 @@ def multimetric_plot(df, title):
 
     #plot metrics
     sns.lineplot(df, x='year', y='mfs_ha_adiff_y1', label='MFS', marker='o')
-    sns.lineplot(df, x='year', y='mperi_adiff_y1', label='totperi', marker='o')
-    sns.lineplot(df, x='year', y='medges_adiff_y1', label='edges', marker='o')
+    sns.lineplot(df, x='year', y='mperi_adiff_y1', label='mperi', marker='o')
+    #sns.lineplot(df, x='year', y='medges_adiff_y1', label='edges', marker='o')
     sns.lineplot(df, x='year', y='mean_par_adiff_y1', label='MeanPAR', marker='o')
     sns.lineplot(df, x='year', y='fields_ha_adiff_y1', label='Fields/Ha', marker='o')
     
