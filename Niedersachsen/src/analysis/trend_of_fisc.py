@@ -27,7 +27,7 @@ grid_allyears_stats, grid_yearly_stats = gd.desc_grid(gridgdf)
 label_color_dict = {}
 
 # %% create multimetric plot and save the colors for each label for consistency
-def multimetric_plot(df, title, metrics):
+def multimetric_plot(df, title, ylabel, metrics):
     
     global label_color_dict  # Access the global color dictionary
     
@@ -52,7 +52,7 @@ def multimetric_plot(df, title, metrics):
     # Add titles and labels
     plt.title(title)
     plt.xlabel('Year')
-    plt.ylabel('Average Absolute Change in Field Metric Value from 2012')
+    plt.ylabel(ylabel)
     plt.legend(title='Metrics')
 
     # Show the plot
@@ -65,6 +65,7 @@ def multimetric_plot(df, title, metrics):
 multimetric_plot(
     df=grid_yearly_stats, # or grid_yearly_stats_wtoutlier
     title='Trend of Percentage Change in Field Metric Value Over Time',
+    ylabel = 'Av. Percentage Change in Field Metric Value from 2012',
     metrics={
         'mperi': 'mperi_apercdiff_y1',
         'MFS': 'mfs_ha_apercdiff_y1',
@@ -84,6 +85,7 @@ save_color_dict(label_color_dict)
 multimetric_plot(
     df=grid_yearly_stats,
     title='Trend of Average Absolute Change in Field Metric Value Over Time',
+    ylabel = 'Av. Absolute Change in Field Metric Value from 2012',
     metrics={
         'MFS': 'mfs_ha_adiff_y1',
         'mperi': 'mperi_adiff_y1',
@@ -204,8 +206,34 @@ multimetric_plot(df = grid_yearly_stats, title = 'Trend of Average Percentage Ch
 # or multimetric_plot(df = grid_yearly_stats_wtoutlier, title = 'Trend of Average Percentage Change in Aggregate Area Metric  Over Time (with Outlier)')
 
     
+############################################################################################################
+# Trend Analysis without Grid
+############################################################################################################    
+# %%
+multimetric_plot(
+    df=gextyd,
+    title='Trend of Percentage Change in Field Metric Value Over Time',
+    ylabel = 'Percentage Change in Field Metric Value from 2012',
+    metrics={
+        'MFS': 'area_mean_percdiff_to_y1',
+        'mperi': 'peri_mean_percdiff_to_y1',
+        'MeanPAR': 'meanPAR_percdiff_to_y1',
+        'Fields/Ha': 'fields_ha_percdiff_to_y1'
+    }
+)    
     
-    
+# %%
+multimetric_plot(
+    df=gydesc,
+    title='Trend of Absolute Change in Field Metric Value Over Time',
+    ylabel = 'Absolute Change in Field Metric Value from 2012',
+    metrics={
+        'MFS': 'area_mean_diff_from_y1',
+        'mperi': 'peri_mean_diff_from_y1',
+        'MeanPAR': 'meanPAR_diff_from_y1',
+        'Fields/Ha': 'fields_ha_diff_from_y1'
+    }
+)    
     
     
     
