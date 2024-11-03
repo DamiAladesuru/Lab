@@ -7,7 +7,6 @@ import logging
 import numpy as np
 from shapely.geometry import box
 import pickle
-import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 # Silence the print statements in a function call
@@ -333,7 +332,7 @@ def calculate_diff_fromy1(griddf): #yearly differences from first year
     # Create a dictionary to store the new columns
     new_columns = {}
 
-    # Calculate difference relative to the first year
+    # Get the first occurrence of each unique CELLCODE in the griddf_ext DataFrame. 
     y1_df = griddf_ext.groupby('CELLCODE').first().reset_index()
     
     # Rename the numeric columns to indicate the first year
