@@ -145,7 +145,7 @@ def gld_overyears():
 # sub sample for crop groups that are of interest
 # compute yearly averages for the sub samples and differences from first year
 # then plot the differences over the years 
-def gld_overyears():
+def gldss_overyears():
     gld = adjust_gld()
     
     # Count and store unique values in 'Gruppe'
