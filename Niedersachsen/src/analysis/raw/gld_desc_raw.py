@@ -10,15 +10,29 @@ from src.data import eca_new as eca
 
 # %%
 def adjust_gld():
+    gld_path = 'data/interim/gld_wtkc.pkl'
+    
+    # Check if the file already exists
+    if os.path.exists(gld_path):
+        # Load data from the file if it exists
+        gld = pd.read_pickle(gld_path)
+        print("Loaded gld data from existing file.")
+    else:
         # Load base data
-    gld = dl.load_data(loadExistingData=True)
-    # add additional columns to the data
-    kulturcode_mastermap = eca.process_kulturcode()
-    gld = pd.merge(gld, kulturcode_mastermap, on='kulturcode', how='left')
-    gld = gld.drop(columns=['sourceyear', 'cpar', 'shp_index', 'fract'])
-
+        gld = dl.load_data(loadExistingData=True)
+        # Add additional columns to the data
+        kulturcode_mastermap = eca.process_kulturcode()
+        gld = pd.merge(gld, kulturcode_mastermap, on='kulturcode', how='left')
+        # Drop unnecessary columns
+        gld = gld.drop(columns='sourceyear')
+        # Save the processed data to a file
+        gld.to_pickle(gld_path)
+        print("Processed and saved new data.")
+    
+    gld = gld.drop(columns=['cpar', 'shp_index', 'fract'])
     
     return gld
+
 
 # %%
 def compute_year_average(gld):

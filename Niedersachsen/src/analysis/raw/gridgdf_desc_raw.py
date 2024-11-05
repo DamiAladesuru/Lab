@@ -16,6 +16,7 @@ os.chdir("C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen")
 
 from src.data import dataload as dl
 from src.data import eca_new as eca
+from src.analysis.raw import gld_desc_raw as gdr
 
 ''' This script contains functions for:
     - modifying gld to include columns for basic additional metrics and kulturcode descriptions.
@@ -29,19 +30,6 @@ def square_cpar(gld): #shape index adjusted for square fields
     gld['cpar2'] = ((0.25 * gld['peri_m']) / (gld['area_m2']**0.5))
     return gld
 
-
-# %%
-def adjust_gld():
-        # Load base data
-    gld = dl.load_data(loadExistingData=True)
-    # add additional columns to the data
-    gld_ext = square_cpar(gld)
-    kulturcode_mastermap = eca.process_kulturcode()
-    gld_ext = pd.merge(gld_ext, kulturcode_mastermap, on='kulturcode', how='left')
-    gld_ext = gld_ext.drop(columns=['sourceyear'])
-    
-   
-    return gld_ext
 
 # %% A.
 def create_griddf(gld):
@@ -217,8 +205,8 @@ def create_gridgdf_raw(): # no outlier removal from gld and from gridgdf
         
     gridgdf_filename = os.path.join(output_dir, 'gridgdf_raw.pkl')
 
-    # adjust gld
-    gld_ext = adjust_gld()
+    # load gld
+    gld_ext = gdr.adjust_gld()
 
     # Load or create gridgdf_raw with gld_ext
     if os.path.exists(gridgdf_filename):

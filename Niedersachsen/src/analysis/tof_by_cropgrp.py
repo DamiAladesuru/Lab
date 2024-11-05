@@ -7,6 +7,7 @@ import pandas as pd
 os.chdir("C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen")
 
 from src.analysis import gridgdf_desc2 as gd
+from src.analysis.raw import gld_desc_raw as gdr
 
 '''
 script plots all metrics like trend_of_fisc script but disaggregates by crop group
@@ -14,16 +15,18 @@ script plots all metrics like trend_of_fisc script but disaggregates by crop gro
 
 # %% dfs for subsamples
 # Load or create gld_trimmed for subsample loop
-output_dir = 'data/interim/gridgdf'
-gld_trimmed_filename = os.path.join(output_dir, 'gld_trimmed.pkl')
+output_dir = 'data/interim/gridgdf' # or 'data/interim/' to access gld_wtkc.pkl
+gld_filename = os.path.join(output_dir, 'gld_trimmed.pkl')
 
-if os.path.exists(gld_trimmed_filename):
-    gld_trimmed = pd.read_pickle(gld_trimmed_filename)
-    print(f"Loaded gld_trimmed from {gld_trimmed_filename}")
+if os.path.exists(gld_filename):
+    gld = pd.read_pickle(gld_filename) 
+    print(f"Loaded gld from {gld_filename}")
 else:
-    gld_trimmed = gd.adjust_trim_gld()
-    gld_trimmed.to_pickle(gld_trimmed_filename)
-    print(f"Saved gld_trimmed to {gld_trimmed_filename}")
+    gld = gd.adjust_trim_gld() # or gdr.adjust_gld()
+    gld.to_pickle(gld_filename)
+    print(f"Saved gld to {gld_filename}")
+    
+
     
 #%%    
 # List of different crop values you want to explore
@@ -37,7 +40,7 @@ yearly_dict = {}
 # Loop through the list of cropss values
 for cropss in cropss_list:
     # Pass gld_trimmed as an argument
-    gld_dict[f'{cropss}'], gridgdf_dict[f'{cropss}'] = gd.silence_prints(gd.create_gridgdf_subsample, cropsubsample=cropss, col2='category3', gld_data=gld_trimmed)
+    gld_dict[f'{cropss}'], gridgdf_dict[f'{cropss}'] = gd.silence_prints(gd.create_gridgdf_subsample, cropsubsample=cropss, col2='category3', gld_data=gld)
     allyears_dict[f'{cropss}'], yearly_dict[f'{cropss}'] = gd.silence_prints(gd.desc_grid, gridgdf_dict[f'{cropss}'])
       
 print(allyears_dict.keys())
