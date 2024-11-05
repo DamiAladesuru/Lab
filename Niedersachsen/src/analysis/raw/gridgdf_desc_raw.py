@@ -210,7 +210,7 @@ def to_gdf(griddf_ext):
     return gridgdf
 
 
-def create_gridgdf_raw():
+def create_gridgdf_raw(): # no outlier removal from gld and from gridgdf
     output_dir = 'data/interim/gridgdf'
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -222,7 +222,7 @@ def create_gridgdf_raw():
 
     # Load or create gridgdf_raw with gld_ext
     if os.path.exists(gridgdf_filename):
-        gridgdf = pd.read_pickle(gridgdf_filename)
+        gridgdf_raw = pd.read_pickle(gridgdf_filename)
         print(f"Loaded gridgdf from {gridgdf_filename}")
     else:
         griddf = create_griddf(gld_ext)

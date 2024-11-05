@@ -1,0 +1,172 @@
+# %%
+import pandas as pd
+import os
+
+os.chdir("C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen")
+
+from src.data import dataload as dl
+from src.data import eca_new as eca
+
+
+# %%
+def adjust_gld():
+        # Load base data
+    gld = dl.load_data(loadExistingData=True)
+    # add additional columns to the data
+    kulturcode_mastermap = eca.process_kulturcode()
+    gld = pd.merge(gld, kulturcode_mastermap, on='kulturcode', how='left')
+    gld = gld.drop(columns=['sourceyear', 'cpar', 'shp_index', 'fract'])
+
+    
+    return gld
+
+# %%
+def compute_year_average(gld):
+        # 2. Group by 'year' and calculate descriptives
+        gld_yearly_desc = gld.groupby('year').agg(
+            fields_total=('geometry', 'count'),
+                              
+            kc_unique=('kulturcode', 'nunique'),                              
+            group_unique=('Gruppe', 'nunique'),
+
+            area_sum=('area_ha', 'sum'),
+            area_mean=('area_ha', 'mean'),
+            area_sd = ('area_ha', 'std'),
+            
+            peri_sum=('peri_m', 'sum'),
+            peri_mean=('peri_m', 'mean'),
+            peri_sd = ('peri_m', 'std'),
+
+            meanPAR=('par', 'mean'),
+            par_sd=('par', 'std') 
+
+        ).reset_index()
+            
+        return gld_yearly_desc
+
+# %%
+#yearly gridcell differences and differences from first year
+def calculate_yearlydiff(gld_yearly_desc): #yearly differences
+    # Create a copy of the original dictionary to avoid altering the original data
+    cop = gld_yearly_desc.copy()
+    
+    # Ensure the data is sorted by 'year'
+    cop.sort_values(by='year', inplace=True)
+    numeric_columns = cop.select_dtypes(include='number').columns
+
+    # Create a dictionary to store the new columns
+    new_columns = {}
+
+    # Calculate yearly difference for numeric columns and store in the dictionary
+    for col in numeric_columns:
+        new_columns[f'{col}_diff'] = cop[col].diff().fillna(0)
+    # Calculate yearly relative difference for numeric columns and store in the dictionary
+        new_columns[f'{col}_percdiff'] = (cop[col].diff() / cop[col].shift(1)).fillna(0) * 100
+    
+    # Concatenate the new columns to the original DataFrame all at once
+    new_columns_df = pd.DataFrame(new_columns)
+    cop = pd.concat([cop, new_columns_df], axis=1)
+
+    return cop    
+
+
+# %%
+def calculate_diff_fromy1(gld_yearly_desc): #yearly differences from first year
+    # Create a copy of the original dictionary to avoid altering the original data
+    cop = gld_yearly_desc.copy()
+
+    # Ensure the data is sorted by 'year'
+    cop.sort_values(by='year', inplace=True)
+    
+    # Get a list of all numeric columns except 'year'
+    numeric_columns = [col for col in cop.columns if col != 'year']
+    
+    # Create a dictionary to store the new columns
+    new_columns = {}
+
+    # Get the first year's row in the dataFrame
+    y1_df = cop[cop['year'] == cop['year'].min()] 
+    
+    # Rename the numeric columns to indicate the first year
+    y1_df = y1_df.rename(columns={col: f'{col}_y1' for col in numeric_columns})
+
+    # Perform a cross join by adding a temporary key to both dataframes
+    cop['key'] = 1
+    y1_df['key'] = 1
+
+    # Merge on the temporary key to create the cross join
+    cop = cop.merge(y1_df.drop(columns=['year']), on='key', how='left').drop(columns='key')
+    
+    # Calculate the difference from the first year for each numeric column (excluding yearly differences)
+    for col in numeric_columns:
+        new_columns[f'{col}_diff_from_y1'] = cop[col] - cop[f'{col}_y1']
+        new_columns[f'{col}_percdiff_to_y1'] = ((cop[col] - cop[f'{col}_y1']) / cop[f'{col}_y1'])*100
+
+    # Drop the temporary first year columns
+    cop.drop(columns=[f'{col}_y1' for col in numeric_columns], inplace=True)
+
+    # Concatenate the new columns to the original DataFrame all at once
+    new_columns_df = pd.DataFrame(new_columns)
+    cop_y1 = pd.concat([cop, new_columns_df], axis=1)
+
+    return cop_y1
+
+
+# %% 
+def combine_diffgriddfs(cop, cop_y1):
+    # Ensure the merge is based on 'year'
+    # Select columns from cop_y1 that are not in cop (excluding 'year')
+    columns_to_add = [col for col in cop_y1.columns if col not in cop.columns or col in 'year']
+
+    # Merge the DataFrames on 'CELLCODE' and 'year', keeping the existing columns in cop
+    combined_griddf = pd.merge(cop, cop_y1[columns_to_add], on='year', how='left')
+    
+    return combined_griddf
+
+
+# %%
+def gld_overyears():
+    gld = adjust_gld()
+    gydesc = compute_year_average(gld)
+    gydesc['fields_ha'] = gydesc['fields_total'] / gydesc['area_sum']
+    cop = calculate_yearlydiff(gydesc)
+    cop_y1 = calculate_diff_fromy1(gydesc)
+    gydesc_new = combine_diffgriddfs(cop, cop_y1)
+    
+    
+    return gld, gydesc_new
+
+
+# %%
+##################################################
+# work with subsamples based on crop groups
+##################################################
+# here I need to load gld with crop groups,
+# sub sample for crop groups that are of interest
+# compute yearly averages for the sub samples and differences from first year
+# then plot the differences over the years 
+def gld_overyears():
+    gld = adjust_gld()
+    
+    # Count and store unique values in 'Gruppe'
+    gruppe_values = gld['category3'].unique()
+    gruppe_count = len(gruppe_values)
+    
+    # Create a dictionary to store results for each Gruppe
+    ss_dict = {}
+    
+    for gruppe in gruppe_values:
+        # Create subsample for each Gruppe
+        gld_subsample = gld[gld['category3'] == gruppe]
+        
+        # Run other functions on the subsample
+        gydesc = compute_year_average(gld_subsample)
+        gydesc['fields_ha'] = gydesc['fields_total'] / gydesc['area_sum']
+        cop = calculate_yearlydiff(gydesc)
+        cop_y1 = calculate_diff_fromy1(gydesc)
+        gydesc_new = combine_diffgriddfs(cop, cop_y1)
+        
+        # Store results for this Gruppe
+        ss_dict[gruppe] = gydesc_new
+    
+    return gld, ss_dict, gruppe_count

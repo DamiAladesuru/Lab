@@ -48,15 +48,12 @@ def multimetric_plot(df, title, ylabel, metrics):
     plt.ylabel(ylabel)
     plt.legend(title='Metrics')
     plt.show()
-
+# %%
 #############################################
-# single correlation matrix
+# Correlation
 #############################################
-def test_correlation(df):
-    # Select target columns
-    target_columns = target_columns
-    new_column_names = new_column_names
-    
+# 1. Correlation test
+def test_correlation(df, target_columns, new_column_names):
     # Calculate correlation matrix
     correlation_matrix = df[target_columns].corr()
     
@@ -66,9 +63,10 @@ def test_correlation(df):
     
     return correlation_matrix
 
-def plot_correlation_matrix(df, title):
+# 2. Single matrix plot
+def plot_correlation_matrix(df, title, target_columns, new_column_names):
     # Get the correlation matrix
-    corr_matrix = test_correlation(df)
+    corr_matrix = test_correlation(df, target_columns, new_column_names)
     
     # Create the plot
     plt.figure(figsize=(8, 8))
@@ -77,24 +75,9 @@ def plot_correlation_matrix(df, title):
     plt.title(title)
     plt.tight_layout()
     plt.show()
-
-########################################################
-#Correlation matrix for metrics with and without outlier
-########################################################
+    
+# 3. Correlation matrix for metrics with and without outlier
 ''' requires both data with and without outlier to be loaded'''
-def test_correlation(df):
-    # Select target columns
-    target_columns = target_columns
-    new_column_names = new_column_names
-       
-    # Calculate correlation matrix
-    correlation_matrix = df[target_columns].corr()
-    
-    # Rename the columns and index of the correlation matrix
-    correlation_matrix.columns = new_column_names
-    correlation_matrix.index = new_column_names
-    
-    return correlation_matrix
 
 def plot_correlation_matrices(df1, df2, title1, title2):
     # Get the correlation matrices
