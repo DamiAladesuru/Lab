@@ -4,7 +4,7 @@ import os
 
 os.chdir("C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen")
 
-from src.analysis.raw import gridgdf_desc_raw as gdr
+from src.analysis.raw import gridgdf_desc_raw as grdr
 from src.analysis import gridgdf_desc2 as gd
 from src.visualization import plotting_module as pm
 
@@ -12,14 +12,14 @@ from src.visualization import plotting_module as pm
  for the first time. After that we can use other functions directly and metric colors will be consistent across all plots.'''
 
 # %% load data
-gld_ext, gridgdf_raw = gdr.silence_prints(gdr.create_gridgdf_raw)
-grid_allyears_raw, grid_yearly_raw = gdr.silence_prints(gdr.desc_grid,gridgdf_raw)
+gld_ext, gridgdf_raw = grdr.silence_prints(grdr.create_gridgdf_raw)
+grid_allyears_raw, grid_yearly_raw = grdr.silence_prints(grdr.desc_grid,gridgdf_raw)
 gld_trimmed, gridgdf = gd.create_gridgdf()
 grid_allyears_stats, grid_yearly_stats = gd.desc_grid(gridgdf)
 
 # %% define objects for plotting
-multiline_df = grid_yearly_raw # or gextyd for plotting trend without grid
-correlation_df = gridgdf
+#multiline_df = grid_yearly_raw # or gextyd for plotting trend without grid
+correlation_df = gridgdf_raw
 #correlation_wtoutlier = gridgdf_wtoutlier
 
 # %%
@@ -79,3 +79,33 @@ pm.multimetric_ss_plot(dict, 'Metrics Over Years by Gruppe', 'Percentage Change 
                                 'Fields/Ha': 'fields_ha_apercdiff_y1',
                                 'MeanPAR': 'mean_par_apercdiff_y1'
                                 })
+
+############################################
+# analysis without grid
+############################################
+# %% load data without grid
+from src.analysis.raw import gld_desc_raw as gdr
+gld, gydesc = gdr.gld_overyears()
+
+# %% Multimetric plot of yearly average percentage change in field metrics
+pm.multimetric_plot(
+    df=gydesc, # or grid_yearly_stats_wtoutlier
+    title='Trend of Change in Field Metric Value Over Time',
+    ylabel = 'Percentage Change in Field Metric Value from 2012',
+    metrics={
+        'mperi': 'peri_mean_percdiff_to_y1',
+        'MFS': 'area_mean_percdiff_to_y1',
+        'Fields/Ha': 'fields_ha_percdiff_to_y1',
+        'MeanPAR': 'meanPAR_percdiff_to_y1'
+        }
+)
+# %% correlation matrix
+target_columns = ['area_mean_percdiff_to_y1', 'fields_ha_percdiff_to_y1', 'meanPAR_percdiff_to_y1', 'peri_mean_percdiff_to_y1']
+#target_columns = ['mfs_ha_adiff_y1', 'fields_ha_adiff_y1', 'grid_par_adiff_y1', 'grid_par2_adiff_y1', 'mean_par_apercdiff_y1', 'mperi_adiff_y1'] #for absolute change
+new_column_names = ['Δ_mfs', 'Δ_f/ha', 'Δ_MeanPAR', 'Δ_mperi']
+
+# single correlation matrix
+pm.plot_correlation_matrix(gydesc, 'Correlation Matrix of Field Metrics', target_columns, new_column_names)
+
+
+# %%
