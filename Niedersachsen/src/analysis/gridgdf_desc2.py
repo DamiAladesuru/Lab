@@ -2,7 +2,6 @@
 import pandas as pd
 import geopandas as gpd
 import os
-import math as m
 import logging
 import numpy as np
 from shapely.geometry import box
@@ -23,9 +22,9 @@ from src.data import eca_new as eca
     - modifying gld to include columns for additional metrics, polygon edge count,
     unique count of polygon edges in a grid cell and kulturcode descriptions.
     - trimming and removing outliers from gld
-    - creating griddf and gridgdf (with outlier, without outlier and for subsamples).
+    - creating griddf and gridgdf (without outlier).
     - computing descriptive statistics for gridgdf.
-The functions are called in the trend_of_fisc script, subsample_explo and other main analysis scripts.
+The functions are called in the trend_of_fisc script and other main analysis scripts.
 
 '''
 
@@ -160,27 +159,6 @@ def process_geodataframe_individual(gdf):
     
     return gdf
 
-
-# %%
-def adjust_gld():
-        # Load base data
-    gld = dl.load_data(loadExistingData=True)
-    # add additional columns to the data
-    gld_ext = square_cpar(gld)
-    kulturcode_mastermap = eca.process_kulturcode()
-    gld_ext = pd.merge(gld_ext, kulturcode_mastermap, on='kulturcode', how='left')
-    gld_ext = gld_ext.drop(columns=['sourceyear'])
-    
-    # call function to add missing year data
-    gld_ext = add_missing_year_data(gld_ext, '10kmE438N336', 2016, 2017)
-    # call the function to count edges
-    # Process grouped metrics
-    # gld_ext = process_geodataframe_grouped(gld_ext)
-
-    # Process individual metrics
-    # gld_ext = process_geodataframe_individual(gld_ext)  
-    
-    return gld_ext
 
 # %%
 def adjust_trim_gld():
@@ -414,51 +392,6 @@ def trim_gridgdf(gridgdf, column, threshold):
     
     return gridgdf_trim
 
-# with the next three functions, we can create gridgdf with or without outliers and for specific crop subsamples
-# the subsampling function uses the gld without outliers
-def create_gridgdf_wtoutlier(): # without trimming gld
-    output_dir = 'data/interim/gridgdf/new'
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-        
-    gridgdf_filename = os.path.join(output_dir, 'gridgdf_wtoutlier.pkl')
-
-    # adjust gld
-    gld_ext = adjust_gld()
-
-    # Load or create gridgdf_wtoutlier with gld_ext
-    if os.path.exists(gridgdf_filename):
-        gridgdf = pd.read_pickle(gridgdf_filename)
-        print(f"Loaded gridgdf from {gridgdf_filename}")
-    else:
-        griddf = create_griddf(gld_ext)
-        dupli = check_duplicates(griddf)
-        # calculate differences
-        griddf_ydiff = calculate_yearlydiff(griddf)
-        griddf_exty1 = calculate_diff_fromy1(griddf)
-        griddf_ext = combine_griddfs(griddf_ydiff, griddf_exty1)
-        
-        # Check for infinite values in all columns
-        for column in griddf_ext.columns:
-            infinite_values = griddf_ext[column].isin([np.inf, -np.inf])
-            print(f"Infinite values present in {column}:", infinite_values.any())
-
-            # Optionally, print the rows with infinite values
-            if infinite_values.any():
-                print(f"Rows with infinite values in {column}:")
-                print(griddf_ext[infinite_values])
-
-            # Handle infinite values by replacing them with NaN
-            griddf_ext[column].replace([np.inf, -np.inf], np.nan, inplace=True)
-        
-        gridgdf_wtoutlier = to_gdf(griddf_ext)
-        gridgdf_wtoutlier.to_pickle(gridgdf_filename)
-        print(f"Saved gridgdf to {gridgdf_filename}")
-
-    return gld_ext, gridgdf_wtoutlier
-
-
-
 #%%
 def create_gridgdf():
     output_dir = 'data/interim/gridgdf'
@@ -520,31 +453,6 @@ def create_gridgdf():
 
 
     return gld_trimmed, gridgdf
-
-
-# %% subsampling
-def create_gridgdf_subsample(cropsubsample, col1='Gruppe', col2=None, gld_data=None):
-    # Use gld data loaded in subsamping script
-    if gld_data is not None:
-        gld_trimmed = gld_data
-        
-    # Create subsample gridgdf
-    if col2:
-        # Subsample with flexibility to subsample from 'Gruppe' or a category column 
-        gld_ss = gld_trimmed[(gld_trimmed[col1] == cropsubsample) | (gld_trimmed[col2] == cropsubsample)]
-    else:
-        # Subsample based on one column (default to 'Gruppe')
-        gld_ss = gld_trimmed[gld_trimmed[col1] == cropsubsample]
-    griddf = create_griddf(gld_ss)
-    dupli = check_duplicates(griddf)
-    # calculate differences
-    griddf_ydiff = calculate_yearlydiff(griddf)
-    griddf_exty1 = calculate_diff_fromy1(griddf)
-    griddf_ext = combine_griddfs(griddf_ydiff, griddf_exty1)       
-    gridgdf = to_gdf(griddf_ext)
-    
-
-    return gld_ss, gridgdf
 
 
 # %% B.
@@ -611,18 +519,11 @@ def desc_grid(gridgdf):
             mean_par_adiff_y1=('mean_par_diff_from_y1', 'mean'),
             mean_par_apercdiff_y1=('mean_par_percdiff_to_y1', 'mean'),
             
-            #mean_edges_mean=('mean_edges', 'mean'),
-            #mean_edges_std=('mean_edges', 'std'),
-            #mean_edges_av_yearly_diff=('mean_edges_yearly_diff', 'mean'),
-            #mean_edges_adiff_y1=('mean_edges_diff_from_y1', 'mean'),
-            #mean_edges_apercdiff_y1=('mean_edges_percdiff_to_y1', 'mean'),
-            
             fields_ha_mean=('fields_ha', 'mean'),
             fields_ha_std=('fields_ha', 'std'),
             fields_ha_av_yearly_diff=('fields_ha_yearly_diff', 'mean'),
             fields_ha_adiff_y1=('fields_ha_diff_from_y1', 'mean'),
             fields_ha_apercdiff_y1=('fields_ha_percdiff_to_y1', 'mean')
-
 
 
         ).reset_index()
@@ -632,13 +533,46 @@ def desc_grid(gridgdf):
 
     return grid_allyears_stats, grid_yearly_stats
 
+# Other potential variables to include in the gridgdf desc
+'''
+                        
+            mean_edges_mean=('mean_edges', 'mean'),
+            mean_edges_std=('mean_edges', 'std'),
+            mean_edges_av_yearly_diff=('mean_edges_yearly_diff', 'mean'),
+            mean_edges_adiff_y1=('mean_edges_diff_from_y1', 'mean'),
+            mean_edges_apercdiff_y1=('mean_edges_percdiff_to_y1', 'mean'),
+            
+            totuperi_sum=('total_uperimeter', 'sum'),
+            totuperi_mean=('total_uperimeter', 'mean'),
+            totuperi_std = ('total_uperimeter', 'std'),
+            totuperi_av_yearly_diff=('total_uperimeter_yearly_diff', 'mean'),
+            totuperi_adiff_y1=('total_uperimeter_diff_from_y1', 'mean'),
+            totuperi_apercdiff_y1=('total_uperimeter_percdiff_to_y1', 'mean'),            
+
+            grid_par_mean=('grid_par', 'mean'),
+            grid_par_std=('grid_par', 'std'),
+            grid_par_av_yearly_diff=('grid_par_yearly_diff', 'mean'),
+            grid_par_adiff_y1=('grid_par_diff_from_y1', 'mean'),
+            grid_par_apercdiff_y1=('grid_par_percdiff_to_y1', 'mean'),
+            
+            totuedges_mean=('totunique_edges', 'mean'),
+            totuedges_std=('totunique_edges', 'std'),
+            totuedges_av_yearly_diff=('totunique_edges_yearly_diff', 'mean'),
+            totuedges_adiff_y1=('totunique_edges_diff_from_y1', 'mean'),
+            totuedges_apercdiff_y1=('totunique_edges_percdiff_to_y1', 'mean'),
+            
+            muedges_mean=('mean_unique_edges', 'mean'),
+            muedges_std=('mean_unique_edges', 'std'),
+            muedges_av_yearly_diff=('mean_unique_edges_yearly_diff', 'mean'),
+            muedges_adiff_y1=('mean_unique_edges_diff_from_y1', 'mean'),
+            muedges_apercdiff_y1=('mean_unique_edges_percdiff_to_y1', 'mean')
+'''
+
+
 # Silence the print statements in a function call
 def silence_prints(func, *args, **kwargs):
     # Create a string IO stream to catch any print outputs
     with io.StringIO() as f, contextlib.redirect_stdout(f):
         return func(*args, **kwargs)  # Call the function without print outputs
 ######################################################################################
-# %%
-gld_ext, gridgdf_wto = silence_prints(create_gridgdf_wtoutlier)
-grid_allyears_wto, grid_yearly_wto = silence_prints(desc_grid,gridgdf_wto)
-# %%
+
