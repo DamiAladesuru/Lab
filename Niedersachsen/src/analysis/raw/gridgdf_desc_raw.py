@@ -240,31 +240,6 @@ def create_gridgdf_raw(): # no outlier removal from gld and from gridgdf
     return gld_ext, gridgdf_raw
 
 
-# %% subsampling
-def create_gridgdf_subsample(cropsubsample, col1='Gruppe', col2=None, gld_data=None):
-    # Use gld data loaded in subsamping script
-    if gld_data is not None:
-        gld = gld_data
-        
-    # Create subsample gridgdf
-    if col2:
-        # Subsample with flexibility to subsample from 'Gruppe' or a category column 
-        gld_ss = gld[(gld[col1] == cropsubsample) | (gld[col2] == cropsubsample)]
-    else:
-        # Subsample based on one column (default to 'Gruppe')
-        gld_ss = gld[gld[col1] == cropsubsample]
-    griddf = create_griddf(gld_ss)
-    dupli = check_duplicates(griddf)
-    # calculate differences
-    griddf_ydiff = calculate_yearlydiff(griddf)
-    griddf_exty1 = calculate_diff_fromy1(griddf)
-    griddf_ext = combine_griddfs(griddf_ydiff, griddf_exty1)       
-    gridgdf = to_gdf(griddf_ext)
-    
-
-    return gld_ss, gridgdf
-
-
 # %% B.
 #########################################################################
 # compute mean and median for columns in gridgdf. save the results to a csv file

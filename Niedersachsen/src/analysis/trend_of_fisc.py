@@ -17,9 +17,13 @@ grid_allyears_raw, grid_yearly_raw = grdr.silence_prints(grdr.desc_grid,gridgdf_
 gld_trimmed, gridgdf = gd.create_gridgdf()
 grid_allyears_stats, grid_yearly_stats = gd.desc_grid(gridgdf)
 
+# %%
+gld_ext, gridgdf_wto = grdr.silence_prints(gd.create_gridgdf_wtoutlier)
+grid_allyears_wto, grid_yearly_wto = gd.silence_prints(grdr.desc_grid,gridgdf_wto)
+
 # %% define objects for plotting
-#multiline_df = grid_yearly_raw # or gextyd for plotting trend without grid
-correlation_df = gridgdf_raw
+multiline_df = grid_yearly_wto # or gextyd for plotting trend without grid
+#correlation_df = gridgdf_raw
 #correlation_wtoutlier = gridgdf_wtoutlier
 
 # %%
