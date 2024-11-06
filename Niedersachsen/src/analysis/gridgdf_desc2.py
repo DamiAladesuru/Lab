@@ -214,7 +214,7 @@ def adjust_trim_gld():
 
 # %% A.
 def create_griddf(gld):
-    columns = ['CELLCODE', 'year', 'LANDKREIS', 'total_uperimeter', 'totunique_edges', 'mean_unique_edges']
+    columns = ['CELLCODE', 'year', 'LANDKREIS'] #, 'total_uperimeter', 'totunique_edges', 'mean_unique_edges'
 
     # 1. Extract the specified columns and drop duplicates
     griddf = gld[columns].drop_duplicates().copy()
@@ -230,9 +230,9 @@ def create_griddf(gld):
     griddf = pd.merge(griddf, fields, on=['CELLCODE', 'year'])
 
     # Average total edges of polygons in grid
-    mean_edges = gld.groupby(['CELLCODE', 'year'])['edges'].mean().reset_index()
-    mean_edges.columns = ['CELLCODE', 'year', 'mean_edges']
-    griddf = pd.merge(griddf, mean_edges, on=['CELLCODE', 'year'])
+    #mean_edges = gld.groupby(['CELLCODE', 'year'])['edges'].mean().reset_index()
+    #mean_edges.columns = ['CELLCODE', 'year', 'mean_edges']
+    #griddf = pd.merge(griddf, mean_edges, on=['CELLCODE', 'year'])
 
     # Number of unique groups per grid
     group_count = gld.groupby(['CELLCODE', 'year'])['Gruppe'].nunique().reset_index()
@@ -279,7 +279,7 @@ def create_griddf(gld):
     #griddf['grid_par'] = ((griddf['peri_sum'] / griddf['fsm2_sum'])) #compare to mean par 
     
     #new grid par
-    griddf['grid_par'] = ((griddf['total_uperimeter'] / griddf['fsm2_sum'])) #compare to mean par
+    #griddf['grid_par'] = ((griddf['total_uperimeter'] / griddf['fsm2_sum'])) #compare to mean par
             
     griddf = griddf.drop(columns=['par_sum', 'fsm2_sum'])
     
@@ -416,7 +416,7 @@ def trim_gridgdf(gridgdf, column, threshold):
 
 # with the next three functions, we can create gridgdf with or without outliers and for specific crop subsamples
 # the subsampling function uses the gld without outliers
-def create_gridgdf_wtoutlier():
+def create_gridgdf_wtoutlier(): # without trimming gld
     output_dir = 'data/interim/gridgdf/new'
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -611,42 +611,19 @@ def desc_grid(gridgdf):
             mean_par_adiff_y1=('mean_par_diff_from_y1', 'mean'),
             mean_par_apercdiff_y1=('mean_par_percdiff_to_y1', 'mean'),
             
-            mean_edges_mean=('mean_edges', 'mean'),
-            mean_edges_std=('mean_edges', 'std'),
-            mean_edges_av_yearly_diff=('mean_edges_yearly_diff', 'mean'),
-            mean_edges_adiff_y1=('mean_edges_diff_from_y1', 'mean'),
-            mean_edges_apercdiff_y1=('mean_edges_percdiff_to_y1', 'mean'),
+            #mean_edges_mean=('mean_edges', 'mean'),
+            #mean_edges_std=('mean_edges', 'std'),
+            #mean_edges_av_yearly_diff=('mean_edges_yearly_diff', 'mean'),
+            #mean_edges_adiff_y1=('mean_edges_diff_from_y1', 'mean'),
+            #mean_edges_apercdiff_y1=('mean_edges_percdiff_to_y1', 'mean'),
             
             fields_ha_mean=('fields_ha', 'mean'),
             fields_ha_std=('fields_ha', 'std'),
             fields_ha_av_yearly_diff=('fields_ha_yearly_diff', 'mean'),
             fields_ha_adiff_y1=('fields_ha_diff_from_y1', 'mean'),
-            fields_ha_apercdiff_y1=('fields_ha_percdiff_to_y1', 'mean'),
+            fields_ha_apercdiff_y1=('fields_ha_percdiff_to_y1', 'mean')
 
-            totuperi_sum=('total_uperimeter', 'sum'),
-            totuperi_mean=('total_uperimeter', 'mean'),
-            totuperi_std = ('total_uperimeter', 'std'),
-            totuperi_av_yearly_diff=('total_uperimeter_yearly_diff', 'mean'),
-            totuperi_adiff_y1=('total_uperimeter_diff_from_y1', 'mean'),
-            totuperi_apercdiff_y1=('total_uperimeter_percdiff_to_y1', 'mean'),            
 
-            grid_par_mean=('grid_par', 'mean'),
-            grid_par_std=('grid_par', 'std'),
-            grid_par_av_yearly_diff=('grid_par_yearly_diff', 'mean'),
-            grid_par_adiff_y1=('grid_par_diff_from_y1', 'mean'),
-            grid_par_apercdiff_y1=('grid_par_percdiff_to_y1', 'mean'),
-            
-            totuedges_mean=('totunique_edges', 'mean'),
-            totuedges_std=('totunique_edges', 'std'),
-            totuedges_av_yearly_diff=('totunique_edges_yearly_diff', 'mean'),
-            totuedges_adiff_y1=('totunique_edges_diff_from_y1', 'mean'),
-            totuedges_apercdiff_y1=('totunique_edges_percdiff_to_y1', 'mean'),
-            
-            muedges_mean=('mean_unique_edges', 'mean'),
-            muedges_std=('mean_unique_edges', 'std'),
-            muedges_av_yearly_diff=('mean_unique_edges_yearly_diff', 'mean'),
-            muedges_adiff_y1=('mean_unique_edges_diff_from_y1', 'mean'),
-            muedges_apercdiff_y1=('mean_unique_edges_percdiff_to_y1', 'mean')
 
         ).reset_index()
             
@@ -661,3 +638,7 @@ def silence_prints(func, *args, **kwargs):
     with io.StringIO() as f, contextlib.redirect_stdout(f):
         return func(*args, **kwargs)  # Call the function without print outputs
 ######################################################################################
+# %%
+gld_ext, gridgdf_wto = silence_prints(create_gridgdf_wtoutlier)
+grid_allyears_wto, grid_yearly_wto = silence_prints(desc_grid,gridgdf_wto)
+# %%
