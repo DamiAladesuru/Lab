@@ -151,36 +151,3 @@ def gld_overyears():
     return gld, gydesc_new
 
 
-# %%
-##################################################
-# work with subsamples based on crop groups
-##################################################
-# here I need to load gld with crop groups,
-# sub sample for crop groups that are of interest
-# compute yearly averages for the sub samples and differences from first year
-# then plot the differences over the years 
-def gldss_overyears():
-    gld = adjust_gld()
-    
-    # Count and store unique values in 'Gruppe'
-    gruppe_values = gld['category3'].unique()
-    gruppe_count = len(gruppe_values)
-    
-    # Create a dictionary to store results for each Gruppe
-    ss_dict = {}
-    
-    for gruppe in gruppe_values:
-        # Create subsample for each Gruppe
-        gld_subsample = gld[gld['category3'] == gruppe]
-        
-        # Run other functions on the subsample
-        gydesc = compute_year_average(gld_subsample)
-        gydesc['fields_ha'] = gydesc['fields_total'] / gydesc['area_sum']
-        cop = calculate_yearlydiff(gydesc)
-        cop_y1 = calculate_diff_fromy1(gydesc)
-        gydesc_new = combine_diffgriddfs(cop, cop_y1)
-        
-        # Store results for this Gruppe
-        ss_dict[gruppe] = gydesc_new
-    
-    return gld, ss_dict, gruppe_count
