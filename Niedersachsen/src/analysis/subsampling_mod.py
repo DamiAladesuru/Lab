@@ -34,11 +34,11 @@ def griddf_speci_subsample(cropsubsample, col1='Gruppe', col2=None, gld_data=Non
 # sub sample for crop groups that are of interest
 # compute yearly averages for the sub samples and differences from first year
 # then plot the differences over the years 
-def gldss_overyears():
+def gldss_overyears(column):
     gld = gdr.adjust_gld()
     
     # Count and store the unique values in gld column 'Gruppe' or 'category3' etc.
-    gruppe_values = gld['category3'].unique()
+    gruppe_values = gld[column].unique()
     gruppe_count = len(gruppe_values)
     
     # Create a dictionary to store results for each Gruppe
@@ -46,7 +46,7 @@ def gldss_overyears():
     
     for gruppe in gruppe_values:
         # Create subsample for each Gruppe
-        gld_subsample = gld[gld['category3'] == gruppe]
+        gld_subsample = gld[gld[column] == gruppe]
         
         # Run other functions on the subsample
         gydesc = gdr.compute_year_average(gld_subsample)

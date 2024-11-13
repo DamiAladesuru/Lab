@@ -111,5 +111,25 @@ new_column_names = ['Δ_mfs', 'Δ_f/ha', 'Δ_MeanPAR', 'Δ_mperi']
 # single correlation matrix
 pm.plot_correlation_matrix(gydesc, 'Correlation Matrix of Field Metrics', target_columns, new_column_names)
 
+# %% 
+##################################################
+# multimetric facet plot for subsamples of data
+##################################################	
+# Call the subsampling data function
+from src.analysis import subsampling_mod as ss
 
+gld, results, gruppe_count = ss.gldss_overyears(column = 'Gruppe')
+
+
+# Define your metrics
+metrics = {
+    'MFS': 'area_mean_percdiff_to_y1',
+    'mperi': 'peri_mean_percdiff_to_y1',
+    'MeanPAR': 'meanPAR_percdiff_to_y1',
+    'Fields/Ha': 'fields_ha_percdiff_to_y1'
+}
+
+# Call the modified multimetric_plot function
+pm.multimetric_ss_plot(results, 'Metrics Over Years by Gruppe', 'Percentage Change in Field Metric Value from 2012',\
+    metrics)
 # %%
