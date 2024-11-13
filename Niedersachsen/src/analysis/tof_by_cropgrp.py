@@ -7,6 +7,7 @@ import pandas as pd
 os.chdir("C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen")
 
 from src.analysis import gridgdf_desc2 as gd
+from src.analysis import subsampling_mod as ss
 from src.analysis.raw import gld_desc_raw as gdr
 
 '''
@@ -15,14 +16,14 @@ script plots all metrics like trend_of_fisc script but disaggregates by crop gro
 
 # %% dfs for subsamples
 # Load or create gld_trimmed for subsample loop
-output_dir = 'data/interim/gridgdf' # or 'data/interim/' to access gld_wtkc.pkl
+output_dir = 'data/interim/gridgdf' # or 'data/interim/' to access untrimmed gld_wtkc.pkl
 gld_filename = os.path.join(output_dir, 'gld_trimmed.pkl')
 
 if os.path.exists(gld_filename):
     gld = pd.read_pickle(gld_filename) 
     print(f"Loaded gld from {gld_filename}")
 else:
-    gld = gd.adjust_trim_gld() # or gdr.adjust_gld()
+    gld = gd.adjust_trim_gld() # or gdr.adjust_gld() to use gld_wtkc.pkl
     gld.to_pickle(gld_filename)
     print(f"Saved gld to {gld_filename}")
     
@@ -30,7 +31,7 @@ else:
     
 #%%    
 # List of different crop values you want to explore
-cropss_list = ['others', 'ffc', 'environmental', 'dauergrünland', 'dauerkulturen']
+cropss_list = ['ffc', 'environmental']
 
 gld_dict = {}
 gridgdf_dict = {}
@@ -40,13 +41,13 @@ yearly_dict = {}
 # Loop through the list of cropss values
 for cropss in cropss_list:
     # Pass gld_trimmed as an argument
-    gld_dict[f'{cropss}'], gridgdf_dict[f'{cropss}'] = gd.silence_prints(gd.create_gridgdf_subsample, cropsubsample=cropss, col2='category3', gld_data=gld)
+    gld_dict[f'{cropss}'], gridgdf_dict[f'{cropss}'] = gd.silence_prints(ss.griddf_speci_subsample, cropsubsample=cropss, col2='category3', gld_data=gld)
     allyears_dict[f'{cropss}'], yearly_dict[f'{cropss}'] = gd.silence_prints(gd.desc_grid, gridgdf_dict[f'{cropss}'])
       
 print(allyears_dict.keys())
    
 # %%
-cropss_to_plot = 'environmental'  # Replace 'ffc' with the crop group you want to plot
+cropss_to_plot = 'ffc'  # Replace 'ffc' with the crop group you want to plot
 # %%
 # 1a. multiline plot of percentage change in size, count and shape metrics of average fields over time
 def multimetric_plot(df, title):
