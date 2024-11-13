@@ -118,8 +118,10 @@ pm.plot_correlation_matrix(gydesc, 'Correlation Matrix of Field Metrics', target
 from src.analysis import subsampling_mod as ss
 
 gld, results, gruppe_count = ss.gldss_overyears(column = 'Gruppe')
+results_gr = ss.group_dictdfs(results)
+print(results.keys())
 
-
+# %%
 # Define your metrics
 metrics = {
     'MFS': 'area_mean_percdiff_to_y1',
@@ -128,7 +130,15 @@ metrics = {
     'Fields/Ha': 'fields_ha_percdiff_to_y1'
 }
 
-# Call the modified multimetric_plot function
-pm.multimetric_ss_plot(results, '#', 'Percentage Change in Field Metric Value from 2012',\
-    metrics)
+# Call the modified multimetric_plot function either
+# a. For one facet plot containing all subgroups
+# pm.multimetric_ss_plot(results, '#', 'Percentage Change in Field Metric Value from 2012', metrics)
+
+# or preferably, for subgrouped facet plots
+
 # %%
+# Iterate over each key in ss_dict_gr to plot each subgroup
+for subgroup_name, subgroup_dict in results_gr.items():
+    title = f"{subgroup_name} Metrics Over Time"
+    ylabel = "Metric Value"  # Customize as needed
+    pm.multimetric_ss_plot(subgroup_dict, title, ylabel, metrics)

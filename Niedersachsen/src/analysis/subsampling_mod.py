@@ -59,4 +59,51 @@ def gldss_overyears(column):
         ss_dict[gruppe] = gydesc_new
     
     return gld, ss_dict, gruppe_count
-# %%
+
+# %% let subsamples be grouped as in category3
+def group_dictdfs(ss_dict):
+    environmental_groups = [
+        'stilllegung/aufforstung', 
+        'greening / landschaftselemente', 
+        'aukm', 
+        'aus der produktion genommen'
+    ]
+    
+    ffc_groups = [
+        'getreide',
+        'gemüse',
+        'leguminosen',
+        'eiweißpflanzen',
+        'hackfrüchte',
+        'ölsaaten',
+        'kräuter',
+        'ackerfutter'
+    ]
+        
+    others = [
+        'sonstige flächen',
+        'andere handelsgewächse',
+        'zierpflanzen',
+        'mischkultur',
+        'energiepflanzen'
+    ]
+    
+    dauerkulturen = [
+        'dauerkulturen'
+    ]
+    
+    dauergrünland = [
+        'dauergrünland'
+    ]
+
+    # Create grouped dictionary with conditional check for existing keys in ss_dict
+    ss_dict_gr = {
+        'environmental': {key: ss_dict[key] for key in environmental_groups if key in ss_dict},
+        'food_and_fodder': {key: ss_dict[key] for key in ffc_groups if key in ss_dict},
+        'others': {key: ss_dict[key] for key in others if key in ss_dict},
+        'dauerkulturen': {key: ss_dict[key] for key in dauerkulturen if key in ss_dict},
+        'dauergrünland': {key: ss_dict[key] for key in dauergrünland if key in ss_dict}
+    }
+    
+    return ss_dict_gr
+
