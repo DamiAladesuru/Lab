@@ -16,14 +16,14 @@ gld_ext, gridgdf_raw = grdr.silence_prints(grdr.create_gridgdf_raw)
 grid_allyears_raw, grid_yearly_raw = grdr.silence_prints(grdr.desc_grid,gridgdf_raw)
 
 
-# %% without outlier in gld and gridgdf
+# %% without 'outlier' in gld and gridgdf
 #gld_trimmed, gridgdf = gd.create_gridgdf()
 #grid_allyears_stats, grid_yearly_stats = gd.desc_grid(gridgdf)
 
 # %% define objects for plotting
-multiline_df = grid_yearly_raw # or gextyd for plotting trend without grid
+multiline_df = grid_yearly_raw
 #correlation_df = gridgdf_raw
-#correlation_wtoutlier = gridgdf_wtoutlier
+#correlation_wtoutlier = gridgdf_raw
 
 # %%
 # Define the path for the color dictionary
@@ -70,29 +70,16 @@ pm.plot_correlation_matrices(correlation_wtoutlier, correlation_df,
                           'Correlation Matrix without Outliers')
 
 
-# %% for subsample over years data
-from src.analysis.raw import gld_desc_raw as gr
-
-gld, dict, gruppe_count = gr.gld_overyears()
-
-# Run multimetric_plot for subsample dictionary
-pm.multimetric_ss_plot(dict, 'Metrics Over Years by Gruppe', 'Percentage Change in Field Metric Value from 2012',
-                       metrics={'mperi': 'mperi_apercdiff_y1',
-                                'MFS': 'mfs_ha_apercdiff_y1',
-                                'Fields/Ha': 'fields_ha_apercdiff_y1',
-                                'MeanPAR': 'mean_par_apercdiff_y1'
-                                })
-
 ############################################
 # analysis without grid
 ############################################
 # %% load data without grid
 from src.analysis.raw import gld_desc_raw as gdr
-gld, gydesc = gdr.gld_overyears()
+gld, gydesc = gdr.gld_overyears() # or _, gydesc_filt = gld_overyears_filt(x = 'sonstige flächen')
 
 # %% Multimetric plot of yearly average percentage change in field metrics
 pm.multimetric_plot(
-    df=gydesc, # or grid_yearly_stats_wtoutlier
+    df=gydesc, 
     title='Trend of Change in Field Metric Value Over Time',
     ylabel = 'Percentage Change in Field Metric Value from 2012',
     metrics={
