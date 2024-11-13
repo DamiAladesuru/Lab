@@ -14,15 +14,14 @@ from src.visualization import plotting_module as pm
 # %% load data
 gld_ext, gridgdf_raw = grdr.silence_prints(grdr.create_gridgdf_raw)
 grid_allyears_raw, grid_yearly_raw = grdr.silence_prints(grdr.desc_grid,gridgdf_raw)
-gld_trimmed, gridgdf = gd.create_gridgdf()
-grid_allyears_stats, grid_yearly_stats = gd.desc_grid(gridgdf)
 
-# %%
-gld_ext, gridgdf_wto = grdr.silence_prints(gd.create_gridgdf_wtoutlier)
-grid_allyears_wto, grid_yearly_wto = gd.silence_prints(grdr.desc_grid,gridgdf_wto)
+
+# %% without outlier in gld and gridgdf
+#gld_trimmed, gridgdf = gd.create_gridgdf()
+#grid_allyears_stats, grid_yearly_stats = gd.desc_grid(gridgdf)
 
 # %% define objects for plotting
-multiline_df = grid_yearly_wto # or gextyd for plotting trend without grid
+multiline_df = grid_yearly_raw # or gextyd for plotting trend without grid
 #correlation_df = gridgdf_raw
 #correlation_wtoutlier = gridgdf_wtoutlier
 
@@ -130,6 +129,6 @@ metrics = {
 }
 
 # Call the modified multimetric_plot function
-pm.multimetric_ss_plot(results, 'Metrics Over Years by Gruppe', 'Percentage Change in Field Metric Value from 2012',\
+pm.multimetric_ss_plot(results, '#', 'Percentage Change in Field Metric Value from 2012',\
     metrics)
 # %%
