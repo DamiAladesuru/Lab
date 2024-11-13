@@ -202,11 +202,17 @@ def create_gridgdf_raw(): # no outlier removal from gld and from gridgdf
     output_dir = 'data/interim/gridgdf'
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-        
-    gridgdf_filename = os.path.join(output_dir, 'gridgdf_raw.pkl')
+    
+    '''depending on with or without 'sonstige flächen' in gld_ext, change the filename'''
+    #gridgdf_filename = os.path.join(output_dir, 'gridgdf_raw.pkl')
+    gridgdf_filename = os.path.join(output_dir, 'gridgdf_raw_sons.pkl')
 
     # load gld
     gld_ext = gdr.adjust_gld()
+    
+    ''' activate or deactivate the following lines to remove 'sonstige flächen' from gld_ext'''
+    # drop rows in gld with 'Gruppe' == 'sonstige flächen'
+    gld_ext = gld_ext[gld_ext['Gruppe'] != 'sonstige flächen']
 
     # Load or create gridgdf_raw with gld_ext
     if os.path.exists(gridgdf_filename):
@@ -239,7 +245,7 @@ def create_gridgdf_raw(): # no outlier removal from gld and from gridgdf
 
     return gld_ext, gridgdf_raw
 
-
+gld_ext, gridgdf_raw = create_gridgdf_raw()
 # %% B.
 #########################################################################
 # compute mean and median for columns in gridgdf. save the results to a csv file
