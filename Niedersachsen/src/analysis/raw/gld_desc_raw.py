@@ -152,18 +152,18 @@ def gld_overyears():
 
 
 # %%
-def gld_overyears_filt(x):
+def gld_overyears_filt(column, xgroups):
     gld = adjust_gld()
-    # drop rows in gld with 'Gruppe' == x e.g., 'sonstige flächen'
-    gld = gld[gld['Gruppe'] != x]
+    
+    # Filter rows based on the specified column
+    gld = gld[~gld[column].isin(xgroups)]
+    
     gydesc = compute_year_average(gld)
     gydesc['fields_ha'] = gydesc['fields_total'] / gydesc['area_sum']
     cop = calculate_yearlydiff(gydesc)
     cop_y1 = calculate_diff_fromy1(gydesc)
     gydesc_filt = combine_diffgriddfs(cop, cop_y1)
     
-    
     return gld, gydesc_filt
-
 
 # %%
