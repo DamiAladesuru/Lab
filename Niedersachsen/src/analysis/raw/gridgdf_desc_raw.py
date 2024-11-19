@@ -245,7 +245,6 @@ def create_gridgdf_raw(): # no outlier removal from gld and from gridgdf
 
     return gld_ext, gridgdf_raw
 
-gld_ext, gridgdf_raw = create_gridgdf_raw()
 # %% B.
 #########################################################################
 # compute mean and median for columns in gridgdf. save the results to a csv file
