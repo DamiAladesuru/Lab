@@ -198,23 +198,25 @@ def to_gdf(griddf_ext):
     return gridgdf
 
 
-def create_gridgdf_raw(): # no outlier removal from gld and from gridgdf
+def create_gridgdf_raw(include_sonstige=False, filename_suffix=''):
     output_dir = 'data/interim/gridgdf'
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     
-    '''depending on with or without 'sonstige flächen' in gld_ext, change the filename'''
-    #gridgdf_filename = os.path.join(output_dir, 'gridgdf_raw.pkl')
-    gridgdf_filename = os.path.join(output_dir, 'gridgdf_raw_sons.pkl')
+    # Dynamically refer to filename based on parameters
+    if filename_suffix:
+        gridgdf_filename = os.path.join(output_dir, f'gridgdf_raw_{filename_suffix}.pkl')
+    else:
+        gridgdf_filename = os.path.join(output_dir, 'gridgdf_raw.pkl')
 
-    # load gld
+    # Load gld
     gld_ext = gdr.adjust_gld()
     
-    ''' activate or deactivate the following lines to remove 'sonstige flächen' from gld_ext'''
-    # drop rows in gld with 'Gruppe' == 'sonstige flächen'
-    gld_ext = gld_ext[gld_ext['Gruppe'] != 'sonstige flächen']
+    # Conditionally remove 'sonstige flächen' based on parameter
+    if not include_sonstige:
+        gld_ext = gld_ext[gld_ext['Gruppe'] != 'sonstige flächen']
 
-    # Load or create gridgdf_raw with gld_ext
+    # Rest of the function remains the same...
     if os.path.exists(gridgdf_filename):
         gridgdf_raw = pd.read_pickle(gridgdf_filename)
         print(f"Loaded gridgdf from {gridgdf_filename}")
@@ -238,12 +240,12 @@ def create_gridgdf_raw(): # no outlier removal from gld and from gridgdf
 
             # Handle infinite values by replacing them with NaN
             griddf_ext[column].replace([np.inf, -np.inf], np.nan, inplace=True)
-        
         gridgdf_raw = to_gdf(griddf_ext)
         gridgdf_raw.to_pickle(gridgdf_filename)
         print(f"Saved gridgdf to {gridgdf_filename}")
 
     return gld_ext, gridgdf_raw
+
 
 # %% B.
 #########################################################################
