@@ -48,21 +48,27 @@ sns.despine(left=True, bottom=True)
 # Show the plot
 plt.show()
 
+# %%
+metric = 'MFS'
+
+# %%
+
+
 ######################################################################################
 #Plotly interactive plots
 ######################################################################################
 # %%  1. Change in total land area per region over time: Diff from year 1
-fig = px.line(r, x='year', y='totarea_percdiff_to_y1', color='LANDKREIS',
-              title='Rel. Diff from Y1 of Total LandArea (ha) for Each Region Over Time',
+fig = px.line(r, x='year', y='meanmfs_percdiff_to_y1', color='LANDKREIS',
+              title=f'Rel. Diff from Y1 of {metric} for Each Region Over Time',
               markers=True)
 
 # Update layout to match the style
 fig.update_layout(
     xaxis_title='Year',
-    yaxis_title='Rel. Diff of TA from Y1 (%)',
+    yaxis_title=f'Rel. Diff of {metric} from Y1 (%)',
     legend_title='Region',
     template='plotly_white',
-    showlegend=False
+    #showlegend=False
 )
 
 # Retrieve colors from the legend
@@ -109,5 +115,11 @@ fig.update_layout(
 
 # Show the plot
 fig.show()
+
+# %%
+# extract allunique LANDKREIS in r and save to csv
+landkreis = r['LANDKREIS'].unique()
+landkreis = pd.DataFrame(landkreis, columns=['LANDKREIS'])
+landkreis.to_csv('reports/figures/regionplots/landkreis_BA.csv', index=False, encoding='ANSI')
 
 # %%
