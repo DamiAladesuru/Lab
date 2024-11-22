@@ -4,32 +4,22 @@ import matplotlib.pyplot as plt
 import math
 import seaborn as sns
 import pandas as pd
+import plotly.express as px
 
 # Set the current working directory
 os.chdir('C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen')
 
-from src.analysis import gridgdf_desc2 as gd
-
+from src.analysis.raw import gld_desc_raw as gdr
 
 # %%
-# filter gld_trimmed for target landkreis
+# filter gld for target landkreis
 def load_gld(landkreis): 
-    input_dir = 'data/interim/gridgdf'    
-        
-    gld_trimmed_filename = os.path.join(input_dir, 'gld_trimmed.pkl')
-
-    # Load or create gld_trimmed
-    if os.path.exists(gld_trimmed_filename):
-        gld_trimmed = pd.read_pickle(gld_trimmed_filename)
-        print(f"Loaded gld_trimmed from {gld_trimmed_filename}")
-    else:
-        gld_trimmed = gd.adjust_trim_gld()
-    region_gld = gld_trimmed[gld_trimmed['LANDKREIS'] == landkreis]
+    gld = gdr.adjust_gld()
+    region_gld = gld[gld['LANDKREIS'] == landkreis]
 
     return region_gld
 
 
-# %%
 def create_catdf(gld, cropgroup):
     columns = [cropgroup, 'year']
 
@@ -67,7 +57,7 @@ def create_catdf(gld, cropgroup):
     catdf['mean_par'] = (catdf['par_sum'] / catdf['fields'])
     
     return catdf    
-# %%
+
 def calculate_yearlydiff(df, cropgroup): #yearly differences
     # Create a copy of the original DataFrame to avoid altering the original data
     df_ext = df.copy()
@@ -136,28 +126,20 @@ def combine_dfs(df_ext, df_exty1):
     
     return combined_df
 
-# %%
 def df_regioncrop():
     #cropgroup = 'category2'
-    region_gld = load_gld('Göttingen')
-    catdf = create_catdf(region_gld, cropgroup)
+    region_gld = load_gld(region)
+    regioncropdf = create_catdf(region_gld, cropgroup)
     # Calculate yearly differences
-    catdf_ydiff = calculate_yearlydiff(catdf, cropgroup)
+    regioncropdf_ydiff = calculate_yearlydiff(regioncropdf, cropgroup)
     # Calculate differences from the first year
-    catdf_exty1 = calculate_diff_fromy1(catdf, cropgroup)
+    regioncropdf_exty1 = calculate_diff_fromy1(regioncropdf, cropgroup)
     # Combine the two DataFrames
-    catdf_ext = combine_dfs(catdf_ydiff, catdf_exty1)
+    regioncropdf_ext = combine_dfs(regioncropdf_ydiff, regioncropdf_exty1)
     
-    return catdf_ext
+    return region_gld, regioncropdf_ext
 
 ##########################################################################
-
-# %%
-cropgroup = 'category2'
-catdf = df_regioncrop()
-
-# Remove rows belonging to 'sonstige flächen'
-#cat_averages = cat_averages[cat_averages[cropgroup] != 'sonstige flächen']
 
 # %%
 # Define the output directory
@@ -165,145 +147,117 @@ output_dir = 'reports/figures/regionplots/cropcats'
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
-# Category2 dictionary color mapping
-hue_colors = {
-    'getreide': '#bcbd22',
-    'ackerfutter': '#8c564b',
-    'dauergrünland': '#006D5B',
-    'gemüse': '#d62728',
-    'hackfrüchte': '#9467bd',
-    'ölsaaten': '#e377c2',
-    'leguminosen': '#ff7f0e',
-    'mischkultur': '#17becf',
-    'dauerkulturen': '#2ca02c',
-    'sonstige flächen': '#7f7f7f',
-    'environmental': '#1f77b4'
-}    
+region = 'Vechta'
+cropgroup = 'Gruppe'
+region, regioncrpdf = df_regioncrop()
 
-# Translation dictionary
-translation_dict = {
-    'ackerfutter': 'forage crops',
-    'gemüse': 'vegetables',
-    'environmental': 'environmental areas',
-    'leguminosen': 'legumes',
-    'mischkultur': 'mixed culture',
-    'hackfrüchte': 'root crops',
-    'dauergrünland': 'permanent grassland',
-    'ölsaaten': 'oilseeds',
-    'dauerkulturen': 'perennial crops',
-    'getreide': 'cereals',
-    'sonstige flächen': 'other areas'
-}
+#groups = regioncrpdf['Gruppe'].unique()
 
+# Remove rows belonging to 'sonstige flächen'
+#regioncrop_averages = regioncrop_averages[regioncrop_averages[cropgroup] != 'sonstige flächen']
 
-# %% Show the colors for each category in category2
+# %%
+# Read colour and translation spreadsheet data into a DataFrame
+df = pd.read_excel('reports/figures/grp_hue_translation.xlsx')
+
+# Convert the DataFrame into dictionaries
+hue_colors = dict(zip(df[cropgroup], df['Hue']))
+translation_dict = dict(zip(df[cropgroup], df['Translation']))
+
+# Show the colors for each group using the imported data
 plt.figure(figsize=(12, 6))
-for category, color in hue_colors.items():
-    plt.plot([], [], color=color, label=translation_dict[category], marker='o', linestyle='')
+for group, color in hue_colors.items():
+    plt.plot([], [], color=color, label=translation_dict[group], marker='o', linestyle='')
 
 # Set the legend to be in two rows with a custom background color and increased border padding
 ncol = math.ceil(len(hue_colors) / 2)
-legend = plt.legend(title=cropgroup, bbox_to_anchor=(0.5, -0.1), loc='upper center', ncol=ncol, borderpad=2)
+legend = plt.legend(title='Crop Group', bbox_to_anchor=(0.5, -0.1), loc='upper center', ncol=ncol, borderpad=2)
 plt.axis('off')
 
 # Adjust layout to prevent cut-off
 plt.tight_layout()
 
 # Save plot with bbox_inches='tight' to include all elements
-plt.savefig(os.path.join(output_dir, 'category2_legend.png'), bbox_inches='tight')
+plt.savefig(os.path.join(output_dir, f'{cropgroup}_legend.png'), bbox_inches='tight')
 
 plt.show()
+
 
 # %% 
 # fig 1a: multi-line plot showing total land area for each crop group in region over time
 ########################################################################################
-# Set the plot style
-sns.set(style="whitegrid")
+fig = px.line(regioncrpdf, x='year', y='fsha_sum_yearly_percdiff', color=cropgroup,
+              color_discrete_map=hue_colors)
+fig.update_layout(
+    #showlegend=False,
+    legend_title= cropgroup,
+    xaxis_title='Year',
+    yaxis_title= 'Perc Yearly Change in Area Sum (ha)',
+    title= f'Yearly Total Area Change for Each Crop Group in {region}',
+    template='plotly_white'
+)
+# save plot as html
+#fig.write_html('reports/figures/ToF/totarepch_cat12.html')
 
-# Create a figure
-plt.figure(figsize=(12, 6))
-
-# Create a line plot for each category with custom colors
-sns.lineplot(data=catdf, x='year', y='fsha_sum_yearly_percdiff', hue=cropgroup,
-             marker='o', palette=hue_colors, legend=False)
-
-# Add titles and labels
-plt.title('Yearly Total Land Area Change for Each Crop Group Over Time')
-plt.xlabel('Year')
-plt.ylabel('Yearly R. Diff of Total Land Area (%)')
-#plt.legend(title='Crop Group', bbox_to_anchor=(1.05, 1), loc='right')
-
-# Remove the top and right spines
-sns.despine(left=True, bottom=True)
-
-# Save plot
-plt.savefig(os.path.join(output_dir, 'tla_gottingen_category2.svg'))
-
-# Show the plot
-plt.show()
+fig.show()
 
 # %%
-# fig 1b: multi-line plot showing diff from base year of total agricultural land for each crop group over time
-#######################################################################################################################
-# Set the plot style
-sns.set(style="whitegrid")
+# fig 1b: multi-line plot showing diff from base year of total agricultural land
+# for each crop group over time
+##################################################################################
+fig = px.line(regioncrpdf, x='year', y='fsha_sum_percdiff_to_y1', color=cropgroup,
+              color_discrete_map=hue_colors)
+fig.update_layout(
+    #showlegend=False,
+    legend_title= cropgroup,
+    xaxis_title='Year',
+    yaxis_title= 'Perc Change from 2012 in Area Sum (ha)',
+    title= f'Perc Change from 2012 in Total Area for Each Crop Group in {region}',
+    template='plotly_white'
+)
+# save plot as html
+#fig.write_html('reports/figures/ToF/totarepch_cat12.html')
 
-# Create a figure
-plt.figure(figsize=(12, 6))
+fig.show()
 
-# Set the background color
-#plt.gca().set_facecolor('#e6e6e6')
-#plt.gcf().set_facecolor('#e6e6e6')
-
-# Create a line plot for each category with custom colors
-sns.lineplot(data = catdf, x='year', y='fsha_sum_percdiff_to_y1', hue=cropgroup,
-             marker='o', palette=hue_colors, legend=False)
-
-# Add titles and labels
-plt.title(' elative Difference from Year One of TL for Each Crop Group Over Time')
-plt.xlabel('Year')
-plt.ylabel('R. Diff of TL from Year One (%)')
-#plt.legend(title='Crop Group', bbox_to_anchor=(1.05, 1), loc='right')
-
-# Remove the top and right spines
-sns.despine(left=True, bottom=True)
-
-# Save plot before showing it
-plt.savefig(os.path.join(output_dir, 'diffy1_TLGot_cat2.svg'))
-
-# Show the plot
-plt.show()
 # %% 
 # fig 2a: multi-line plot showing absolute total land area change for each crop group in region over time
 #########################################################################################################
-# Set the plot style
-sns.set(style="whitegrid")
+fig = px.line(regioncrpdf, x='year', y='fsha_sum_yearly_diff', color=cropgroup,
+              color_discrete_map=hue_colors)
+fig.update_layout(
+    #showlegend=False,
+    legend_title= cropgroup,
+    xaxis_title='Year',
+    yaxis_title= 'Yearly Change in Area Sum (ha)',
+    title= f'Yearly Total Area Change for Each Crop Group in {region}',
+    template='plotly_white'
+)
+# save plot as html
+#fig.write_html('reports/figures/ToF/totarepch_cat12.html')
 
-# Create a figure
-plt.figure(figsize=(12, 6))
-
-# Create a line plot for each category with custom colors
-sns.lineplot(data=catdf, x='year', y='fsha_sum_yearly_diff', hue=cropgroup,
-             marker='o', palette=hue_colors, legend=False)
-
-# Add titles and labels
-plt.title('Yearly Total Land Area Change for Each Crop Group Over Time')
-plt.xlabel('Year')
-plt.ylabel('Yearly Diff of Total Land Area (ha)')
-#plt.legend(title='Crop Group', bbox_to_anchor=(1.05, 1), loc='right')
-
-# Remove the top and right spines
-sns.despine(left=True, bottom=True)
-
-# Save plot
-plt.savefig(os.path.join(output_dir, 'tla_gottingen_cat2_abs.svg'))
-
-# Show the plot
-plt.show()
+fig.show()
 
 # %%
 # fig 2b: multi-line plot showing abs diff from base year of total agricultural land for each crop group over time
 #######################################################################################################################
+fig = px.line(regioncrpdf, x='year', y='fsha_sum_diff_from_y1', color=cropgroup,
+              color_discrete_map=hue_colors)
+fig.update_layout(
+    #showlegend=False,
+    legend_title= cropgroup,
+    xaxis_title='Year',
+    yaxis_title= 'Abs Change from 2012 in Area Sum (ha)',
+    title= f'Abs Change from 2012 in Total Area for Each Crop Group in {region}',
+    template='plotly_white'
+)
+# save plot as html
+#fig.write_html('reports/figures/ToF/totarepch_cat12.html')
+
+fig.show()
+
+
+'''
 # Set the plot style
 sns.set(style="whitegrid")
 
@@ -332,3 +286,5 @@ plt.savefig(os.path.join(output_dir, 'diffy1_TLGot_cat2_abs.svg'))
 
 # Show the plot
 plt.show()
+'''
+# %%

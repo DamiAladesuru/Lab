@@ -6,7 +6,6 @@ import pandas as pd
 import os
 import csv
 
-
 os.chdir("C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen")
 
 from src.analysis.region import regiongdf_df as rd
@@ -19,6 +18,11 @@ r = rd.create_regiondf_fg() # regiondf
 output_dir = 'reports/figures/regionplots'
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
+
+# %% extract allunique LANDKREIS in r and save to csv
+#landkreis = r['LANDKREIS'].unique()
+#landkreis = pd.DataFrame(landkreis, columns=['LANDKREIS'])
+#landkreis.to_csv('reports/figures/regionplots/landkreis_BA.csv', index=False, encoding='ANSI')
 
 ########################################################################################
 
@@ -52,8 +56,6 @@ plt.show()
 metric = 'MFS'
 
 # %%
-
-
 ######################################################################################
 #Plotly interactive plots
 ######################################################################################
@@ -115,11 +117,3 @@ fig.update_layout(
 
 # Show the plot
 fig.show()
-
-# %%
-# extract allunique LANDKREIS in r and save to csv
-landkreis = r['LANDKREIS'].unique()
-landkreis = pd.DataFrame(landkreis, columns=['LANDKREIS'])
-landkreis.to_csv('reports/figures/regionplots/landkreis_BA.csv', index=False, encoding='ANSI')
-
-# %%
