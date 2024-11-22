@@ -12,7 +12,7 @@ from src.visualization import plotting_module as pm
  for the first time. After that we can use other functions directly and metric colors will be consistent across all plots.'''
 
 # %% load data
-gld_ext, gridgdf_raw = grdr.silence_prints(grdr.create_gridgdf_raw, include_sonstige=False, filename_suffix='no_sons')
+gld_ext, gridgdf_raw = grdr.silence_prints(grdr.create_gridgdf_raw, include_sonstige=True)
 #gld_ext, gridgdf_raw = grdr.silence_prints(grdr.create_gridgdf_raw, include_sonstige=True)
 #if include_sonstige = True, the data will include 'sonstige flächen' in the data and for that, you should not specify filename_suffix
 grid_allyears_raw, grid_yearly_raw = grdr.silence_prints(grdr.desc_grid,gridgdf_raw)
@@ -77,12 +77,13 @@ pm.plot_correlation_matrices(correlation_wtoutlier, correlation_df,
 ############################################
 # %% load data without grid
 from src.analysis.raw import gld_desc_raw as gdr
-#gld, gydesc = gdr.gld_overyears() # or 
-_, gydesc_filt = gdr.gld_overyears_filt(x = 'sonstige flächen')
+#gld, gydesc = gdr.gld_overyears() # or
+xgroup =['unbef.mieten.auf al', 'pilze unter glas']
+_, gydesc_filt = gdr.gld_overyears_filt('par', xgroup)
 
 # %% Multimetric plot of yearly average percentage change in field metrics
 pm.multimetric_plot(
-    df=gydesc, 
+    df=gydesc_filt, 
     title='Trend of Change in Field Metric Value Over Time',
     ylabel = 'Percentage Change in Field Metric Value from 2012',
     metrics={
