@@ -65,6 +65,9 @@ def create_griddf(gld):
 
     # Mean field size per grid
     griddf['mfs_ha'] = (griddf['fsha_sum'] / griddf['fields'])
+    
+    # Median field size per grid
+    griddf['medfs_ha'] = gld.groupby(['CELLCODE', 'year'])['area_ha'].median().reset_index()['area_ha']
 
     # Sum of field perimeter per grid
     peri_sum = gld.groupby(['CELLCODE', 'year'])['peri_m'].sum().reset_index()
@@ -73,6 +76,9 @@ def create_griddf(gld):
 
     # Mean perimeter per grids
     griddf['mperi'] = (griddf['peri_sum'] / griddf['fields'])
+    
+    # Median perimeter per grid
+    griddf['medperi'] = gld.groupby(['CELLCODE', 'year'])['peri_m'].median().reset_index()['peri_m']
 
     # Rate of fields per hectare of land per grid
     griddf['fields_ha'] = (griddf['fields'] / griddf['fsha_sum'])
@@ -88,6 +94,9 @@ def create_griddf(gld):
 
     # Mean par per grid
     griddf['mean_par'] = (griddf['par_sum'] / griddf['fields'])
+    
+    # Median par per grid
+    griddf['medpar'] = gld.groupby(['CELLCODE', 'year'])['par'].median().reset_index()['par']
     
     # p/a ratio of grid as sum of peri divided by sum of area per grid
     #griddf['grid_par'] = ((griddf['peri_sum'] / griddf['fsm2_sum'])) #compare to mean par 
