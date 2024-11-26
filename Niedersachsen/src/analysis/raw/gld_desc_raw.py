@@ -10,7 +10,7 @@ from src.data import eca_new as eca
 
 # %%
 def adjust_gld():
-    gld_path = 'data/interim/gld_wtkc.pkl'
+    gld_path = 'data/interim/gldkc_min100.pkl'
     
     # Check if the file already exists
     if os.path.exists(gld_path):
@@ -30,6 +30,7 @@ def adjust_gld():
         print("Processed and saved new data.")
     
     gld = gld.drop(columns=['cpar', 'shp_index', 'fract'])
+    gld = gld[~(gld['area_m2'] < 100)]
     
     return gld
 
@@ -45,13 +46,16 @@ def compute_year_average(gld):
 
             area_sum=('area_ha', 'sum'),
             area_mean=('area_ha', 'mean'),
+            area_median = ('area_ha', 'median'),
             area_sd = ('area_ha', 'std'),
             
             peri_sum=('peri_m', 'sum'),
             peri_mean=('peri_m', 'mean'),
+            peri_median = ('peri_m', 'median'),
             peri_sd = ('peri_m', 'std'),
 
             meanPAR=('par', 'mean'),
+            medianPAR=('par', 'median'),
             par_sd=('par', 'std') 
 
         ).reset_index()
