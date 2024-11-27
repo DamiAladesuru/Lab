@@ -20,6 +20,7 @@ nbformat = "*"
 openpyxl = "*"
 scikit-learn = "*"
 joypy = "*"
+geoplot = "*"
 
 [dev-packages]
 
