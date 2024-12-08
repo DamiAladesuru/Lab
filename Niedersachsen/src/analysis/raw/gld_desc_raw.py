@@ -9,13 +9,11 @@ from src.data import eca_new as eca
 
 
 # %%
-def adjust_gld():
-    gld_path = 'data/interim/gldkc_min100.pkl'
-    
+def adjust_gld(threshold=100, filename='data/interim/gldkc_min100.pkl', apply_threshold=False):
     # Check if the file already exists
-    if os.path.exists(gld_path):
+    if os.path.exists(filename):
         # Load data from the file if it exists
-        gld = pd.read_pickle(gld_path)
+        gld = pd.read_pickle(filename)
         print("Loaded gld data from existing file.")
     else:
         # Load base data
@@ -26,11 +24,15 @@ def adjust_gld():
         # Drop unnecessary columns
         gld = gld.drop(columns='sourceyear')
         # Save the processed data to a file
-        gld.to_pickle(gld_path)
+        gld.to_pickle(filename)
         print("Processed and saved new data.")
     
+    # Drop unnecessary columns
     gld = gld.drop(columns=['cpar', 'shp_index', 'fract'])
-    gld = gld[~(gld['area_m2'] < 100)]
+    
+    # Apply threshold filtering only if specified
+    if apply_threshold:
+        gld = gld[~(gld['area_m2'] < threshold)]
     
     return gld
 
