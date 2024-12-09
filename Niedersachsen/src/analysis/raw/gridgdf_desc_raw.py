@@ -207,25 +207,22 @@ def to_gdf(griddf_ext):
     return gridgdf
 
 
-def create_gridgdf_raw(include_sonstige=False, filename_suffix=''):
+def create_gridgdf_raw(gridfile_suf='', t=100, apply_t=False, gld_file='data/interim/gld_wtkc.pkl'):
     output_dir = 'data/interim/gridgdf'
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     
     # Dynamically refer to filename based on parameters
-    if filename_suffix:
-        gridgdf_filename = os.path.join(output_dir, f'gridgdf_raw_{filename_suffix}.pkl')
+    if gridfile_suf:
+        gridgdf_filename = os.path.join(output_dir, f'gridgdf_raw_{gridfile_suf}.pkl')
     else:
         gridgdf_filename = os.path.join(output_dir, 'gridgdf_raw.pkl')
 
-    # Load gld
-    gld_ext = gdr.adjust_gld()
-    
-    # Conditionally remove 'sonstige flächen' based on parameter
-    if not include_sonstige:
-        gld_ext = gld_ext[gld_ext['Gruppe'] != 'sonstige flächen']
+    # Load gld, applying threshold t filtering only if specified
+    gld_ext = gdr.adjust_gld(t=t, filename=gld_file,
+                             apply_t=apply_t)
 
-    # Rest of the function remains the same...
+
     if os.path.exists(gridgdf_filename):
         gridgdf_raw = pd.read_pickle(gridgdf_filename)
         print(f"Loaded gridgdf from {gridgdf_filename}")
