@@ -29,10 +29,12 @@ def adjust_gld(t=100, file='data/interim/gld_wtkc.pkl', apply_t=False):
     
     # Drop unnecessary columns
     gld = gld.drop(columns=['cpar', 'shp_index', 'fract'])
+    print("Dropped unnecessary columns.")
     
     # Apply threshold t filtering only if specified
     if apply_t:
         gld = gld[~(gld['area_m2'] < t)]
+        print(f"Filtered data based on threshold t = {t}.")
     
     return gld
 
