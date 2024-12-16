@@ -1,4 +1,4 @@
-
+''' Use data mani or trend_of_fisc to load data'''
 # %% Importing modules
 import os
 import seaborn as sns
@@ -10,111 +10,190 @@ import matplotlib.pyplot as plt
 # %%
 os.chdir("C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen")
 
-from src.analysis.raw import gridgdf_desc_raw as grdr
-from src.analysis import gridgdf_desc2 as gd
-from src.visualization import plotting_module as pm
+###########################
+# Subsettings
+###########################
+# %% or subsetting
+gridclean = gridgdf_raw[~(gridgdf_raw['LANDKREIS'] == 'Küstenmeer Region Weser-Ems')| (gridgdf_raw['LANDKREIS'] == 'Lüneburg')]
 
-''' in pm, we have intialize_plotting which we have to run first to set up the color dictionary and plot
- for the first time. After that we can use other functions directly and metric colors will be consistent across all plots.'''
+# %% Filter the DataFrame for the specified CELLCODE values
+# List of CELLCODE values to filter
+cellcodes = ['10kmE433N332', '10kmE439N322', '10kmE442N331', '10kmE438N336', '10kmE417N341']
+ 
+edgegrids = gridgdf_raw[gridgdf_raw['CELLCODE'].isin(cellcodes)]
+print(edgegrids[['CELLCODE', 'LANDKREIS']])
 
-# %% load data
-gld_ext, gridgdf_raw = grdr.silence_prints(
-    grdr.create_gridgdf_raw,
-    gridfile_suf='nole100',
-    apply_t=False,
-    gld_file='data/interim/gldkc_min100.pkl'
-    )
-grid_allyears_raw, grid_yearly_raw = grdr.silence_prints(grdr.desc_grid,gridgdf_raw)
+# %% 
+Niedergld = gld[gld['FLIK'].str.startswith('DENI')]
 
-# %% all data - base
-import pickle as pkl
-gld_base = pkl.load(open('data/interim/gld_wtkc.pkl', 'rb'))
+###########################
+# Transform to log and obtain z scrore
+###########################
+# %%
+# Reset index and rename for consistency
+gld_ = gld.reset_index().rename(columns={'index': 'id'})
+
+# Drop the geometry column if it exists (optional if needed)
+#gld_ = gld_.drop(columns='geometry', errors='ignore')
+
+# Select numerical columns except 'year' and 'kulturcode'
+data = gld_.select_dtypes(include=[np.number]).drop(['year', 'kulturcode'], axis=1)
+
+# Apply log transformation and create new columns with '_log' suffix
+for column in data.columns:
+    gld_[f'{column}_log'] = np.log1p(gld_[column])
+
+# Calculate Z-scores for the log-transformed columns grouped by 'year'
+log_columns = [f'{column}_log' for column in data.columns]  # List of log-transformed columns
+
+# Group by 'year' and calculate Z-scores within each group
+for column in log_columns:
+    # Compute Z-score within each year group
+    gld_[f'{column}_zscore'] = gld_.groupby('year')[column].transform(lambda x: (x - x.mean()) / x.std())
+
+#%% Identify outliers (Z-score > 3 or Z-score < -3)
+outliers_par = gld_[gld_['par_log_zscore'] > 3]
+outliears_area = gld_[gld_['area_m2_log_zscore'] < -3]
+outliears_area = outliears_area.drop(columns='geometry')
+
+###########################
+# get polygons within a buffer
+###########################
+'''you can use gridgdf or land shp as polygons_gdf'''
+# Combine all boundary geometries into a single geometry
+boundary_geometry = polygons_gdf.unary_union
+
+# Create a 10km inner buffer (negative buffer shrinks the boundary)
+inner_buffer_10km = boundary_geometry.buffer(-10000)  # Shrink by 10,000 meters (10km)
+
+# Ensure the inner buffer geometry is valid (fix if necessary)
+if not inner_buffer_10km.is_valid:
+    inner_buffer_10km = inner_buffer_10km.buffer(0)
+
+# Select polygons that are within the inner buffer
+polygons_within_10km_inside = polygons_gdf[polygons_gdf.geometry.intersects(inner_buffer_10km)]
+
+#For grids in the upper left that are not included
+add = gridgdfno100[gridgdfno100['CELLCODE'].isin(['10kmE412N339','10kmE412N338','10kmE412N337','10kmE412N336'])]
+#For grid in the middle left that ought not to be
+polygons_within_10km_inside = polygons_within_10km_inside[~(polygons_within_10km_inside['CELLCODE'] == '10kmE409N327')]
+
+
+###########################
+# multi layer plot
+###########################
+base = polygons_gdf.plot(color='white', edgecolor='black', figsize=(10, 10))
+
+boundary_gdf.plot(ax=base, color='blue', alpha=0.5)
+
+gpd.GeoSeries(inner_buffer_10km).plot(ax=base, color='red', alpha=0.2)
+
+polygons_within_10km_inside.plot(ax=base, color='green', alpha=0.7)
+plt.show()
+
+###########################
+#scatter plots
+###########################
+# %% scatter gld
+unique_years = sorted(gldno100['year'].unique())
+stack_plots_in_grid(gld_, unique_years, scatterplot_par_area, "area_ha_log", "par_log", ncols=4, figsize=(25, 15))
+
+# %% scatter gridgdf
+#d = gridgdfnoout_[~(gridgdfnoout_['fields_zscore'] < -1.55)]
+stack_plots_in_grid(polygons_within_10km_inside, unique_years, scatterplot_mpar_marea, "mfs_ha", "medpar", ncols=4, figsize=(25, 15))
+
+
+###########################
+#box plots
+###########################
+# %% box single
+def box_plot(df, column):
+    sns.boxplot(df[column])
+    plt.title(f'Box Plot of {column}')
+    plt.show()
+    
+box_plot(gld, 'area_ha')
+
+# %% boxplot for every year
+data = gridgdfnoout
+plt.figure(figsize=(12, 6))
+ax = sns.boxplot(data=data, x='year', y='medpar')
 
 # %%
-gld_clean =gld_ext[~(gld_ext['area_m2'] < 100)]
-df16_10 = gld_clean[(gld_clean['year'] == 2016) & (gld_clean['par'] > 10)]
-df16_10 = df16_10.drop(columns='geometry')
-# field with FLIK DENILI1531570006 and year 2016 has par > 10
+# Extract upper whiskers (upper limit) for each year
+upper_limits = []
 
-# %%
-#df = gld_ext
-# filter for rows where 'area_m2' is greater than or equal to 100.
-# in germany, gardens, representing comparatively small fields have size between 100 and 800m2
-# depending on whether private, schreber or larger rural area gardens.
-# thus makes sense to throw out fields smaller than 100m2 in our data
-gld_300 = gld_base[~(gld_base['area_m2'] < 300)]
+# Access the whiskers (ax.lines contains the whiskers data)
+whiskers = ax.lines
 
+# Number of unique years
+unique_years = data['year'].unique()
 
-# %% rows with area_m2 below 300
-df_300 = gld_clean[(gld_clean['area_m2'] < 300)]
-df_300 = df_300.drop(columns='geometry')
-# over 36k rows have area_m2 below 300
+# Loop through the whiskers and extract the upper limit for each year
+for i, year in enumerate(unique_years):
+    # Get the upper whisker for the current year
+    upper_limit = whiskers[2 * i + 1].get_ydata()[1]  # The upper whisker y-value (second value)
+    upper_limits.append((year, upper_limit))
 
-# %% Initial call to set up the color dictionary and plot absolute change in field metrics
-multiline_df = grid_yearly_raw
-color_dict_path = 'reports/figures/ToF/label_color_dict.pkl'
+# Print the upper limits for each year
+for year, upper_limit in upper_limits:
+    print(f"Year: {year}, Upper Limit: {upper_limit:.2f}")
 
-pm.initialize_plotting(
-    df=multiline_df,
-    title='Trend of Absolute Change in Field Metric Value Over Time',
-    ylabel='Average Absolute Change',
-    metrics={
-        'MFS': 'mfs_ha_adiff_y1',
-        'mperi': 'mperi_adiff_y1',
-        'MeanPAR': 'mean_par_adiff_y1',
-        'Fields/Ha': 'fields_ha_adiff_y1'
-    },
-    color_dict_path=color_dict_path
-)
+# Show the plot
+plt.tight_layout()
+plt.show()
 
-
-
-# %%
-df = gld_250
-unique_years = df['year'].unique()
-
-# %% Loop through each year and create scatterplot of median par and field size
-for year in unique_years:
-    # Subset the DataFrame for the current year
-    df_year = df[df['year'] == year]
+###########################
+#kde plots
+###########################
+# %% kde all years
+def kde_by_year(df, value_column):
+    # Set up the FacetGrid to create separate plots for each year
+    g = sns.FacetGrid(df, col="year", col_wrap=4, height=4)  # Adjust col_wrap and height as needed
     
-    # Create a new figure for each year
-    plt.figure()
+    # Map the kdeplot function onto the facet grid for each year
+    g.map(sns.kdeplot, value_column, fill=True)
     
-    # Create scatterplot 
-    sns.scatterplot(data=df_year, x="medfs_ha", y="medpar")
-    
-    # Set plot title
-    plt.title(f'Median PAR and Median FS for Year {year}')
+    # Add titles and labels
+    g.set_axis_labels(value_column, 'Density')
+    g.set_titles("Year: {col_name}")
     
     # Show the plot
     plt.show()
 
+# %%
+kde_by_year(gridgdfnoout_, 'fields_zscore')
 
-# %% Loop through each year and create scatterplot of par and field size
-for year in unique_years:
-    # Subset the DataFrame for the current year
-    df_year = df[df['year'] == year]
+# %% KDE plot for a specific year
+def kde_for_year(df, value_column, year):
+    # Filter data for the specified year
+    year_data = df[df['year'] == year]
     
-    # Create a new figure for each year
-    plt.figure(figsize=(10, 6))
+    # Check if the year exists in the DataFrame
+    if year_data.empty:
+        print(f"No data available for year {year}")
+        return
     
-    # Create scatterplot with color based on 'category3'
-    sns.scatterplot(data=df_year, x="area_ha", y="par", hue="category3")
+    # Set up the plot
+    plt.figure(figsize=(8, 6))
     
-    # Set plot title and labels
-    plt.title(f'PAR and Area for Year {year}', fontsize=16)
-    plt.xlabel('Field Size (ha)', fontsize=14)
-    plt.ylabel('PAR', fontsize=14)
+    # Plot KDE for the specified year and value column
+    sns.kdeplot(year_data[value_column], fill=True)
     
-    # Show legend
-    plt.legend(title='Category 3', bbox_to_anchor=(1.05, 1), loc='upper left')
+    # Add labels and title
+    plt.title(f'KDE Plot of {value_column} for Year {year}')
+    plt.xlabel(value_column)
+    plt.ylabel('Density')
     
     # Show the plot
-    plt.tight_layout()
     plt.show()
+    
+# %%
+kde_for_year(gld_, 'area_m2_log', 2017)
 
-
+###########################
+#joy plots
+###########################
 # %% simple joyplot
 df = gridgdf_raw
 labels = [y for y in list(df.year.unique())]
@@ -123,32 +202,25 @@ fig, axes = joypy.joyplot(df, by="year", column="mean_par", labels=labels, range
                           title="Mean PAR distribution of all CELLCODES",
                           colormap=cm.autumn)
 
+# %% yearly joyplot
+create_yearly_joyplot(gld_no4, 'Gruppe', 'par', "PAR distribution in {year}")
 
-# %% loopityloop create yearly joyplot
-unique_years = df['year'].unique()
-for year in unique_years:
-    # Subset the DataFrame for the current year
-    df_year = df[df['year'] == year]
+###########################
+# hist plots
+###########################
+# %% simple histogram for all years in one plot
+def hist_all_years(df, value_column):
+    plt.figure(figsize=(12, 6))
+    sns.histplot(df, x=value_column, hue='year', kde=True, bins=42)
+    plt.title(f'Histogram of {value_column} for all years')
+    plt.show()
     
-    # Create labels for the current year
-    labels = [y for y in list(df_year.Gruppe.unique())]
-    
-    # Create the joyplot for the current year
-    fig, axes = joypy.joyplot(
-        df_year, 
-        by="Gruppe", 
-        column="area_ha", 
-        labels=labels, 
-        range_style='own', 
-        linewidth=1, 
-        legend=True, 
-        figsize=(6, 5),
-        title=f"Area distribution in {year}",
-        colormap=cm.autumn
-    )
-    
-plt.show()
+# %%
+hist_all_years(pol, 'fields')
 
+###########################
+# plot fields and grids
+###########################
 # %%
 def plot_geometries_fitted(gdf):
     # Ensure indices are sequential
@@ -264,193 +336,3 @@ def plot_gridcell_single(gridgdf, gridcell, year):
 
 # Example usage
 plot_gridcell_single(gridgdf_raw, '10kmE416N330', 2017)
-
-
-########################################################################################
-# examine grids with median area greater than 10 and median par greater than 0.10
-########################################################################################
-# %%
-gridgdf_raw.info()
-
-# %% subset data to exclude rows where median area is greater than 10
-gridle10 = gridgdf_raw[~(gridgdf_raw['medfs_ha'] > 10)]
-# keep these outlier rows in a df and check the characteristics
-out_area = gridgdf_raw[(gridgdf_raw['medfs_ha'] > 10)]
-
-# %% subset data to exclude rows where median area is greater than 6
-gridle6 = gridgdf_raw[~(gridgdf_raw['medfs_ha'] > 6)]
-# keep these outlier rows in a df and check the characteristics
-out_area = gridgdf_raw[(gridgdf_raw['medfs_ha'] > 6)]
-
-# %% subset data to exclude rows where mean area is greater than 8
-gridlem8 = gridgdf_raw[~(gridgdf_raw['mfs_ha'] > 8)]
-# keep these outlier rows in a df and check the characteristics
-out_aream = gridgdf_raw[(gridgdf_raw['mfs_ha'] > 8)]
-# %% drop geomertry column
-out_areamdf = out_aream.drop(columns='geometry')
-
-# %% subset data to exclude rows where median par is greater than 0.07
-gridle07 = gridgdf_raw[~(gridgdf_raw['medpar'] > 0.07)]
-# keep these outlier rows in a df and check the characteristics
-out_par = gridgdf_raw[(gridgdf_raw['medpar'] > 0.07)]
-
-# %% before checking the characteristics, plot scatterplot and joyplot to see if data changes
-df = gridlem8
-labels = [y for y in list(df.year.unique())]
-fig, axes = joypy.joyplot(df, by="year", column="medpar", labels=labels, range_style='own', 
-                          linewidth=1, legend=True, figsize=(6,5),
-                          title="Median Par distribution of all CELLCODES",
-                          colormap=cm.pink)
-# %%
-stack_plots_in_grid(gridle07, unique_years, scatterplot_mpar_marea, ncols=4, figsize=(25, 15))
-
-# %%
-stack_plots_in_grid(gridlem8, unique_years, scatterplot_mpar_marea, "medfs_ha", "medpar", ncols=4, figsize=(25, 15))
-
-
-# %%
-gridle7[(gridle7['year'] == 2014)]['medfs_ha'].max()
-
-# %%
-def box_plot(df, column):
-    sns.boxplot(df[column])
-    plt.title(f'Box Plot of {column}')
-    plt.show()
-    
-box_plot(gridle7, 'medfs_ha')
-
-# %% facet grid of KDE plots for each year
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-def kde_by_year(df, value_column):
-    # Set up the FacetGrid to create separate plots for each year
-    g = sns.FacetGrid(df, col="year", col_wrap=4, height=4)  # Adjust col_wrap and height as needed
-    
-    # Map the kdeplot function onto the facet grid for each year
-    g.map(sns.kdeplot, value_column, fill=True)
-    
-    # Add titles and labels
-    g.set_axis_labels(value_column, 'Density')
-    g.set_titles("Year: {col_name}")
-    
-    # Show the plot
-    plt.show()
-
-kde_by_year(gridle6, 'mean_par')
-
-
-# %% KDE plot for a specific year
-def kde_for_year(df, value_column, year):
-    # Filter data for the specified year
-    year_data = df[df['year'] == year]
-    
-    # Check if the year exists in the DataFrame
-    if year_data.empty:
-        print(f"No data available for year {year}")
-        return
-    
-    # Set up the plot
-    plt.figure(figsize=(8, 6))
-    
-    # Plot KDE for the specified year and value column
-    sns.kdeplot(year_data[value_column], fill=True)
-    
-    # Add labels and title
-    plt.title(f'KDE Plot of {value_column} for Year {year}')
-    plt.xlabel(value_column)
-    plt.ylabel('Density')
-    
-    # Show the plot
-    plt.show()
-# %%
-kde_for_year(gridle6, 'medpar', 2020)
-kde_for_year(gridle6, 'mean_par', 2020)
-
-# %%
-kde_for_year(gld_ext, 'mean_par', 2013)
-
-# %%
-geoData = gridlemed5.to_crs(epsg=4326)
-plot_facet_choropleth_with_geoplot(geoData, column='medfs_ha', cmap='plasma', year_col='year', ncols=4)
-# %%
-gridclean = gridgdf_raw[~(gridgdf_raw['LANDKREIS'] == 'Küstenmeer Region Weser-Ems')| (gridgdf_raw['LANDKREIS'] == 'Lüneburg')]
-# %%
-# List of CELLCODE values to filter
-cellcodes = ['10kmE433N332', '10kmE439N322', '10kmE442N331', '10kmE438N336', '10kmE417N341']
-
-# Filter the DataFrame for the specified CELLCODE values
-edgegrids = gridgdf_raw[gridgdf_raw['CELLCODE'].isin(cellcodes)]
-print(edgegrids[['CELLCODE', 'LANDKREIS']])
-# %%
-def box_plot(df, column):
-    sns.boxplot(df[column])
-    plt.title(f'Original Box Plot of {column}')
-    plt.show()
-    
-box_plot(gridlem8, 'mfs_ha')
-# %%
-plt.figure(figsize=(12,6))
-ax = sns.boxplot(data = gridlem8, x='year', y='mfs_ha')
-
-plt.show()
-
-
-# %% Create the boxplot for every year
-plt.figure(figsize=(12, 6))
-ax = sns.boxplot(data=gridgdf_raw, x='year', y='mfs_ha')
-
-# Extract upper whiskers (upper limit) for each year
-upper_limits = []
-
-# Access the whiskers (ax.lines contains the whiskers data)
-whiskers = ax.lines
-
-# Number of unique years
-unique_years = gridgdf_raw['year'].unique()
-
-# Loop through the whiskers and extract the upper limit for each year
-for i, year in enumerate(unique_years):
-    # Get the upper whisker for the current year
-    upper_limit = whiskers[2 * i + 1].get_ydata()[1]  # The upper whisker y-value (second value)
-    upper_limits.append((year, upper_limit))
-
-# Print the upper limits for each year
-for year, upper_limit in upper_limits:
-    print(f"Year: {year}, Upper Limit: {upper_limit:.2f}")
-
-# Show the plot
-plt.tight_layout()
-plt.show()
-
-
-# %%
-# %% subset data to exclude rows where medfs_ha is greater than 5
-gridlemed5 = gridlem8[~(gridlem8['medfs_ha'] > 5)]
-# keep these outlier rows in a df and check the characteristics
-out_areamed = gridlem8[(gridlem8['medfs_ha'] > 5)]
-
-# %% drop geomertry column
-out_areameddf = out_areamed.drop(columns='geometry')
-# %%
-stack_plots_in_grid(gridlem8, unique_years, scatterplot_mpar_marea, "mfs_ha", "medpar", ncols=4, figsize=(25, 15))
-
-# %%
-geoData = gld.to_crs(epsg=4326)
-plot_facet_choropleth_with_geoplot(geoData, column='area_ha', cmap='plasma', year_col='year', ncols=4)
-
-
-# %% checking for field with Par highr than 14 in 2016
-m14_16 = gld[(gld['year'] == 2016) & (gld['par'] > 14) & (gld['area_m2'] > 100)]
-# %%
-m14_16 = m14_16.drop(columns='geometry')
-# %%
-
-# %% yearly explorations: scatterplot and joyplot
-unique_years = sorted(gridgdf_raw['year'].unique())
-stack_plots_in_grid(gridlem8, unique_years, scatterplot_mpar_marea, "mfs_ha", "mean_par", ncols=4, figsize=(25, 15))
-
-# %% Example usage:
-gld_300 = gld_base[~(gld_base['area_m2'] < 300)]
-create_yearly_joyplot(gld_300, 'Gruppe', 'par', "PAR distribution in {year}")
