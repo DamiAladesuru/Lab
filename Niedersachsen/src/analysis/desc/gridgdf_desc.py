@@ -2,10 +2,8 @@
 import pandas as pd
 import geopandas as gpd
 import os
-import math as m
 import logging
 import numpy as np
-from shapely.geometry import box
 import pickle
 # Silence the print statements in a function call
 import contextlib
@@ -14,15 +12,13 @@ import io
 
 os.chdir("C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen")
 
-from src.data import dataload as dl
-from src.data import eca_new as eca
-from src.analysis.raw import gld_desc_raw as gdr
+from src.analysis.desc import gld_desc_raw as gdr
 
 ''' This script contains functions for:
     - modifying gld to include columns for basic additional metrics and kulturcode descriptions.
     - creating griddf and gridgdf (without removing any assumed outlier and for subsamples).
     - computing descriptive statistics for gridgdf.
-The functions are called in the tor_raw script
+The functions are called in the trend_of_fisc script
 '''
 
 # %%
@@ -33,76 +29,60 @@ def square_cpar(gld): #shape index adjusted for square fields
 
 # %% A.
 def create_griddf(gld):
-    columns = ['CELLCODE', 'year', 'LANDKREIS']
+    """
+    Create a griddf GeodataFrame with aggregated statistics that summarize field data.
+
+    Parameters:
+    gld (geodataFrame): Input geodataFrame with columns ['CELLCODE', 'year', 'LANDKREIS'] 
+                        and additional numeric columns for aggregation.
+
+    Returns:
+    A  geoDataFrame with unique CELLCODE, year, and LANDKREIS rows,
+                  enriched with aggregated fields.
+    """
     
-    # 1. Extract the specified columns and drop duplicates
+    required_columns = ['CELLCODE', 'year', 'LANDKREIS', 'geometry',\
+        'Gruppe', 'area_m2', 'area_ha', 'peri_m', 'par']
+    missing = [col for col in required_columns if col not in gld.columns]
+    if missing:
+        raise ValueError(f"Input DataFrame is missing required columns: {missing}")
+    
+    # Step 1: Create base griddf
+    columns = ['CELLCODE', 'year', 'LANDKREIS']
     griddf = gld[columns].drop_duplicates().copy()
     logging.info(f"Created griddf with shape {griddf.shape}")
     logging.info(f"Columns in griddf: {griddf.columns}")
-    
-    # 2. Compute mean statistics at grid level
-    # for statistics, group by year and cellcode because you want to look at each year
-    # and each grid cell and compute the statistics for each grid cell
-    # Number of fields per grid
-    fields = gld.groupby(['CELLCODE', 'year'])['geometry'].count().reset_index()
-    fields.columns = ['CELLCODE', 'year', 'fields']
-    griddf = pd.merge(griddf, fields, on=['CELLCODE', 'year'])
 
-    # Number of unique groups per grid
-    group_count = gld.groupby(['CELLCODE', 'year'])['Gruppe'].nunique().reset_index()
-    group_count.columns = ['CELLCODE', 'year', 'group_count']
-    griddf = pd.merge(griddf, group_count, on=['CELLCODE', 'year'])
+    # Helper function for aggregation
+    def add_aggregated_column(griddf, gld, column, aggfunc, new_col):
+        logging.info(f"Adding column '{new_col}' using '{aggfunc}' on '{column}'.")
+        temp = gld.groupby(['CELLCODE', 'year'])[column].agg(aggfunc).reset_index()
+        temp.columns = ['CELLCODE', 'year', new_col]
+        return pd.merge(griddf, temp, on=['CELLCODE', 'year'], how='left')
 
-    # Sum of field size per grid (m2)
-    fsm2_sum = gld.groupby(['CELLCODE', 'year'])['area_m2'].sum().reset_index()
-    fsm2_sum.columns = ['CELLCODE', 'year', 'fsm2_sum']
-    griddf = pd.merge(griddf, fsm2_sum, on=['CELLCODE', 'year'])
-    
-    # Sum of field size per grid (ha)
-    fsha_sum = gld.groupby(['CELLCODE', 'year'])['area_ha'].sum().reset_index()
-    fsha_sum.columns = ['CELLCODE', 'year', 'fsha_sum']
-    griddf = pd.merge(griddf, fsha_sum, on=['CELLCODE', 'year'])
+    # Define aggregations
+    aggregations = [
+        {'column': 'geometry', 'aggfunc': 'count', 'new_col': 'fields'},
+        {'column': 'Gruppe', 'aggfunc': 'nunique', 'new_col': 'group_count'},
+        {'column': 'area_m2', 'aggfunc': 'sum', 'new_col': 'fsm2_sum'},
+        {'column': 'area_ha', 'aggfunc': 'sum', 'new_col': 'fsha_sum'},
+        {'column': 'peri_m', 'aggfunc': 'sum', 'new_col': 'peri_sum'},
+        {'column': 'par', 'aggfunc': 'sum', 'new_col': 'par_sum'},
+        {'column': 'area_ha', 'aggfunc': 'mean', 'new_col': 'mfs_ha'},
+        {'column': 'peri_m', 'aggfunc': 'mean', 'new_col': 'mperi'},
+        {'column': 'par', 'aggfunc': 'mean', 'new_col': 'mpar'},
+        {'column': 'area_ha', 'aggfunc': 'median', 'new_col': 'medfs_ha'},
+        {'column': 'peri_m', 'aggfunc': 'median', 'new_col': 'medperi'},
+        {'column': 'par', 'aggfunc': 'median', 'new_col': 'medpar'},
+    ]
 
-    # Mean field size per grid
-    griddf['mfs_ha'] = (griddf['fsha_sum'] / griddf['fields'])
-    
-    # Median field size per grid
-    griddf['medfs_ha'] = gld.groupby(['CELLCODE', 'year'])['area_ha'].median().reset_index()['area_ha']
-
-    # Sum of field perimeter per grid
-    peri_sum = gld.groupby(['CELLCODE', 'year'])['peri_m'].sum().reset_index()
-    peri_sum.columns = ['CELLCODE', 'year', 'peri_sum']
-    griddf = pd.merge(griddf, peri_sum, on=['CELLCODE', 'year'])
-
-    # Mean perimeter per grids
-    griddf['mperi'] = (griddf['peri_sum'] / griddf['fields'])
-    
-    # Median perimeter per grid
-    griddf['medperi'] = gld.groupby(['CELLCODE', 'year'])['peri_m'].median().reset_index()['peri_m']
+    # Apply each aggregation
+    for agg in aggregations:
+        griddf = add_aggregated_column(griddf, gld, agg['column'], agg['aggfunc'], agg['new_col'])
 
     # Rate of fields per hectare of land per grid
     griddf['fields_ha'] = (griddf['fields'] / griddf['fsha_sum'])
-    
-    ######################################################################
-    #Shape
-    ######################################################################
-    # perimeter to area ratio
-    # Sum of par per grid
-    par_sum = gld.groupby(['CELLCODE', 'year'])['par'].sum().reset_index()
-    par_sum.columns = ['CELLCODE', 'year', 'par_sum']
-    griddf = pd.merge(griddf, par_sum, on=['CELLCODE', 'year'])
 
-    # Mean par per grid
-    griddf['mean_par'] = (griddf['par_sum'] / griddf['fields'])
-    
-    # Median par per grid
-    griddf['medpar'] = gld.groupby(['CELLCODE', 'year'])['par'].median().reset_index()['par']
-    
-    # p/a ratio of grid as sum of peri divided by sum of area per grid
-    #griddf['grid_par'] = ((griddf['peri_sum'] / griddf['fsm2_sum'])) #compare to mean par 
-    
-    griddf = griddf.drop(columns=['par_sum', 'fsm2_sum'])
-    
     return griddf
 
 
@@ -207,24 +187,19 @@ def to_gdf(griddf_ext):
     return gridgdf
 
 
-def create_gridgdf_raw(gridfile_suf='', t=100, apply_t=False, gld_file='data/interim/gld_wtkc.pkl'):
+def create_gridgdf():
     output_dir = 'data/interim/gridgdf'
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     
     # Dynamically refer to filename based on parameters
-    if gridfile_suf:
-        gridgdf_filename = os.path.join(output_dir, f'gridgdf_raw_{gridfile_suf}.pkl')
-    else:
-        gridgdf_filename = os.path.join(output_dir, 'gridgdf_raw.pkl')
+    gridgdf_filename = os.path.join(output_dir, 'gridgdf.pkl')
 
-    # Load gld, applying threshold t filtering only if specified
-    gld_ext = gdr.adjust_gld(t=t, filename=gld_file,
-                             apply_t=apply_t)
-
+    # Load gld
+    gld_ext = gdr.adjust_gld()
 
     if os.path.exists(gridgdf_filename):
-        gridgdf_raw = pd.read_pickle(gridgdf_filename)
+        gridgdf = pd.read_pickle(gridgdf_filename)
         print(f"Loaded gridgdf from {gridgdf_filename}")
     else:
         griddf = create_griddf(gld_ext)
@@ -246,12 +221,52 @@ def create_gridgdf_raw(gridfile_suf='', t=100, apply_t=False, gld_file='data/int
 
             # Handle infinite values by replacing them with NaN
             griddf_ext[column].replace([np.inf, -np.inf], np.nan, inplace=True)
-        gridgdf_raw = to_gdf(griddf_ext)
-        gridgdf_raw.to_pickle(gridgdf_filename)
+        gridgdf = to_gdf(griddf_ext)
+        gridgdf.to_pickle(gridgdf_filename)
         print(f"Saved gridgdf to {gridgdf_filename}")
 
-    return gld_ext, gridgdf_raw
+    return gld_ext, gridgdf
 
+# %% drop gridgdf outliers i.e., grids which have  fields < 300
+# but only if all fields < 300 for all years in which the grid in the dataset
+def clean_gridgdf(gridgdf):
+    # Remove grids with fields < 300
+    gridgdf_clean = gridgdf[~(gridgdf['fields'] < 300)]
+    outliers = gridgdf[gridgdf['fields'] < 300]
+    # Log the count of unique values of 'CELLCODE' in the outliers
+    logging.info(f"Unique CELLCODES with fields < 300: {outliers['CELLCODE'].nunique()}")
+
+    # Step 2: Create a DataFrame for unique CELLCODES
+    # and total count of years for unique CELLOCODES in gridgdf and outliers
+    gridgdf_unique = gridgdf.groupby('CELLCODE').agg(total_occurrence=('year', 'count')).reset_index()
+    outliers_unique = outliers.groupby('CELLCODE').agg(total_occurrence=('year', 'count')).reset_index()
+
+    # Step 3: Add a column to check if occurrences match
+    merged_outliers = outliers_unique.merge(
+        gridgdf_unique, 
+        on='CELLCODE', 
+        suffixes=('_outliers', '_gridgdf'),
+        how='left'
+    )
+    merged_outliers['all_years_in_data'] = merged_outliers['total_occurrence_outliers'] == merged_outliers['total_occurrence_gridgdf']
+
+    # Step 4: Filter out rows where 'all_years_in_data' is no
+    unmatched_outliers = merged_outliers[merged_outliers['all_years_in_data'] == False]
+
+    # Step 5: Filter original outliers DataFrame for unmatched CELLCODES
+    unmatched_outlier_codes = unmatched_outliers['CELLCODE']
+    unmatched_outliers_df = outliers[outliers['CELLCODE'].isin(unmatched_outlier_codes)]
+
+    # Step 6: Join these rows to gridgdf_clean
+    final_cleaned_gridgdf = pd.concat([gridgdf_clean, unmatched_outliers_df], ignore_index=True)
+    
+    # Step 7: Create a final outliers DataFrame without the unmatched CELLCODES
+    final_outliers = outliers[~(outliers['CELLCODE'].isin(unmatched_outlier_codes))]
+    
+    # Step 8: Print the final count of unique values of 'CELLCODES' in the final outliers
+    logging.info(f"Final unique CELLCODES in outliers: {final_outliers['CELLCODE'].nunique()}")
+
+    return final_cleaned_gridgdf, final_outliers
 
 # %% B.
 #########################################################################
@@ -283,46 +298,67 @@ def desc_grid(gridgdf):
             fields_sum=('fields', 'sum'),
             fields_mean=('fields', 'mean'),
             fields_std = ('fields', 'std'),
-            fields_av_yearly_diff=('fields_yearly_diff', 'mean'),
-            fields_adiff_y1=('fields_diff_from_y1', 'mean'),
-            fields_apercdiff_y1=('fields_percdiff_to_y1', 'mean'),
+            fields_av_yearlydiff=('fields_yearly_diff', 'mean'),
+            fields_adiffy1=('fields_diff_from_y1', 'mean'),
+            fields_apercdiffy1=('fields_percdiff_to_y1', 'mean'),
                     
             group_count_mean=('group_count', 'mean'),
-            group_count_av_yearly_diff=('group_count_yearly_diff', 'mean'),
-            group_count_adiff_y1=('group_count_diff_from_y1', 'mean'),
-            group_count_apercdiff_y1=('group_count_percdiff_to_y1', 'mean'),
+            group_count_av_yearlydiff=('group_count_yearly_diff', 'mean'),
+            group_count_adiffy1=('group_count_diff_from_y1', 'mean'),
+            group_count_apercdiffy1=('group_count_percdiff_to_y1', 'mean'),
 
             fsha_sum_sum=('fsha_sum', 'sum'),
             fsha_sum_mean=('fsha_sum', 'mean'),
             fsha_sum_std = ('fsha_sum', 'std'),
-            fsha_sum_av_yearly_diff=('fsha_sum_yearly_diff', 'mean'),
-            fsha_sum_adiff_y1=('fsha_sum_diff_from_y1', 'mean'),
-            fsha_sum_apercdiff_y1=('fsha_sum_percdiff_to_y1', 'mean'),
+            fsha_sum_av_yearlydiff=('fsha_sum_yearly_diff', 'mean'),
+            fsha_sum_adiffy1=('fsha_sum_diff_from_y1', 'mean'),
+            fsha_sum_apercdiffy1=('fsha_sum_percdiff_to_y1', 'mean'),
 
             mfs_ha_mean=('mfs_ha', 'mean'),
             mfs_ha_std=('mfs_ha', 'std'),
-            mfs_ha_av_yearly_diff=('mfs_ha_yearly_diff', 'mean'),
-            mfs_ha_adiff_y1=('mfs_ha_diff_from_y1', 'mean'),
-            mfs_ha_apercdiff_y1=('mfs_ha_percdiff_to_y1', 'mean'),
+            mfs_ha_av_yearlydiff=('mfs_ha_yearly_diff', 'mean'),
+            mfs_ha_adiffy1=('mfs_ha_diff_from_y1', 'mean'),
+            mfs_ha_apercdiffy1=('mfs_ha_percdiff_to_y1', 'mean'),
 
-            mperi_mean=('mperi', 'mean'), #averge region's mean perimeter
+            med_fsha_mean=('medfs_ha', 'mean'),
+            med_fsha_std=('medfs_ha', 'std'),
+            med_fsha_av_yearlydiff=('medfs_ha_yearly_diff', 'mean'),
+            med_fsha_adiffy1=('medfs_ha_diff_from_y1', 'mean'),
+            med_fsha_apercdiffy1=('medfs_ha_percdiff_to_y1', 'mean'),
+
+            med_fsha_med=('medfs_ha', 'median'),
+            med_fsha_yearlydiff_med=('medfs_ha_yearly_diff', 'median'),
+            med_fsha_diffy1_med=('medfs_ha_diff_from_y1', 'median'),
+            med_fsha_percdiffy1_med=('medfs_ha_percdiff_to_y1', 'median'),            
+
+            mperi_mean=('mperi', 'mean'), #averge mean perimeter
             mperi_std = ('mperi', 'std'),
-            mperi_av_yearly_diff=('mperi_yearly_diff', 'mean'),
-            mperi_adiff_y1=('mperi_diff_from_y1', 'mean'),
-            mperi_apercdiff_y1=('mperi_percdiff_to_y1', 'mean'),
+            mperi_av_yearlydiff=('mperi_yearly_diff', 'mean'),
+            mperi_adiffy1=('mperi_diff_from_y1', 'mean'),
+            mperi_apercdiffy1=('mperi_percdiff_to_y1', 'mean'),
 
-            mean_par_mean=('mean_par', 'mean'),
-            mean_par_std=('mean_par', 'std'),
-            mean_par_av_yearly_diff=('mean_par_yearly_diff', 'mean'),
-            mean_par_adiff_y1=('mean_par_diff_from_y1', 'mean'),
-            mean_par_apercdiff_y1=('mean_par_percdiff_to_y1', 'mean'),
+            mpar_mean=('mpar', 'mean'),
+            mpar_std=('mpar', 'std'),
+            mpar_av_yearlydiff=('mpar_yearly_diff', 'mean'),
+            mpar_adiffy1=('mpar_diff_from_y1', 'mean'),
+            mpar_apercdiffy1=('mpar_percdiff_to_y1', 'mean'),
             
+            medpar_mean=('medpar', 'mean'),
+            medpar_std=('medpar', 'std'),
+            medpar_av_yearlydiff=('medpar_yearly_diff', 'mean'),
+            medpar_adiffy1=('medpar_diff_from_y1', 'mean'),
+            medpar_apercdiffy1=('medpar_percdiff_to_y1', 'mean'),
+
+            medpar_med=('medpar', 'median'),
+            medpar_yearlydiff_med=('medpar_yearly_diff', 'median'),
+            medpar_diffy1_med=('medpar_diff_from_y1', 'median'),
+            medpar_percdiffy1_med=('medpar_percdiff_to_y1', 'median'),
             
             fields_ha_mean=('fields_ha', 'mean'),
             fields_ha_std=('fields_ha', 'std'),
-            fields_ha_av_yearly_diff=('fields_ha_yearly_diff', 'mean'),
-            fields_ha_adiff_y1=('fields_ha_diff_from_y1', 'mean'),
-            fields_ha_apercdiff_y1=('fields_ha_percdiff_to_y1', 'mean')
+            fields_ha_av_yearlydiff=('fields_ha_yearly_diff', 'mean'),
+            fields_ha_adiffy1=('fields_ha_diff_from_y1', 'mean'),
+            fields_ha_apercdiffy1=('fields_ha_percdiff_to_y1', 'mean')
 
         ).reset_index()
             

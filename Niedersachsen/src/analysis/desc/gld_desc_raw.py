@@ -7,9 +7,13 @@ os.chdir("C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen")
 from src.data import dataload as dl
 from src.data import eca_new as eca
 
+''' this script allows to load the raw field data created with dataload.py,
+to join kulturart information and to calculate yearly averages and differences
+directly without grids. It gives you a first overview of what the trend of 
+FiSC looks like over years.'''
 
-# %%
-def adjust_gld(t=100, file='data/interim/gld_wtkc.pkl', apply_t=False):
+# %% load data, add kulturcode information, drop area_ <100m2
+def adjust_gld(file='data/interim/gld_wtkc.pkl'):
     # Check if the file already exists
     if os.path.exists(file):
         # Load data from the file if it exists
@@ -31,15 +35,14 @@ def adjust_gld(t=100, file='data/interim/gld_wtkc.pkl', apply_t=False):
     gld = gld.drop(columns=['cpar', 'shp_index', 'fract'])
     print("Dropped unnecessary columns.")
     
-    # Apply threshold t filtering only if specified
-    if apply_t:
-        gld = gld[~(gld['area_m2'] < t)]
-        print(f"Filtered data based on threshold t = {t}.")
+    # Apply threshold of minimum 100m2 fields
+    gld = gld[~(gld['area_m2'] < 100)]
+    print(f"removed rows with area_m2 less than 100")
     
     return gld
 
 
-# %%
+# %% calculate yearly averages
 def compute_year_average(gld):
         # 2. Group by 'year' and calculate descriptives
         gld_yearly_desc = gld.groupby('year').agg(
@@ -66,7 +69,7 @@ def compute_year_average(gld):
             
         return gld_yearly_desc
 
-# %%
+# %% calculate yearly differences
 #yearly gridcell differences and differences from first year
 def calculate_yearlydiff(gld_yearly_desc): #yearly differences
     # Create a copy of the original dictionary to avoid altering the original data
@@ -92,7 +95,7 @@ def calculate_yearlydiff(gld_yearly_desc): #yearly differences
     return cop    
 
 
-# %%
+# %% calculate differences from first year
 def calculate_diff_fromy1(gld_yearly_desc): #yearly differences from first year
     # Create a copy of the original dictionary to avoid altering the original data
     cop = gld_yearly_desc.copy()
@@ -134,7 +137,7 @@ def calculate_diff_fromy1(gld_yearly_desc): #yearly differences from first year
     return cop_y1
 
 
-# %% 
+# %% combine the differences dataframes
 def combine_diffgriddfs(cop, cop_y1):
     # Ensure the merge is based on 'year'
     # Select columns from cop_y1 that are not in cop (excluding 'year')
@@ -146,7 +149,7 @@ def combine_diffgriddfs(cop, cop_y1):
     return combined_griddf
 
 
-# %%
+# %% process descriptives over time
 def gld_overyears(exclude_condition=None):
     gld = adjust_gld()
     
@@ -164,7 +167,7 @@ def gld_overyears(exclude_condition=None):
     return gld, gydesc_new
 
 
-# %%
+# %% process descriptives over time with filter
 def gld_overyears_filt(column, xgroups):
     gld = adjust_gld()
     
