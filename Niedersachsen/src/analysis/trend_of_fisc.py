@@ -234,3 +234,73 @@ fig.write_html('reports/figures/ToF/totarepch_cat12.html')
 
 fig.show()
 
+# %% examine the top 5 groups with the highest average area sum
+# %% idenitfy the top 5 groups with the highest average area sum
+# from combined df, extract gruppe, year and area_sum columns into another df
+areasum_df = ss_combined[['Gruppe', 'year', 'area_sum']]
+# Pivot the DataFrame to get years as columns and area_sum as values
+areasum = areasum_df.pivot(index='Gruppe', columns='year', values='area_sum')
+# Calculate the average of each Gruppe across the years
+areasum['average'] = areasum.mean(axis=1)
+areasum.reset_index(inplace=True)
+
+# from area_sum, extract value of Gruppe column for top 5 rows of average
+areasum.sort_values('average', ascending=False, inplace=True)
+top5_gruppe = areasum['Gruppe'].head().unique()
+print(top5_gruppe)
+
+# %% bar plot to show yearly area sum for each gruppe
+# Melt the DataFrame to long format for plotting
+melted_df = areasum.melt(id_vars='Gruppe', var_name='year', value_name='area_sum')
+# Filter out the 'average' rows
+filtered_df = melted_df[melted_df['year'] != 'average']
+
+# Create the bar plot
+fig = px.bar(filtered_df, x='Gruppe', y='area_sum', color='year', barmode='group',
+             title='Yearly Area Sum for Each Gruppe')
+
+# Show the plot
+fig.show()
+
+
+###################################################
+# exclude some groups from the data and run plots for entire data
+# to see effect of excluding groups on total area
+######################################################
+# %% load data without grid
+from src.analysis.desc import gld_desc_raw as gdr
+
+# Define groups to exclude
+excgroups = ['dauerkulturen', 'others'] #'ffc', 'environmental', 'dauergrünland'
+# Call the function
+_, gydesc_exc = gdr.gld_overyears_filt('category3', excgroups)
+
+# %% plot total area for entire data
+# total area
+plt.figure(figsize=(8, 6))
+
+plt.plot(gydesc_exc['year'], gydesc_exc['area_sum'], marker='o', color = 'purple')
+plt.xlabel('Year')
+plt.ylabel('Area Sum (ha)')
+plt.title('Total Agricultural Area (ha) in Data Over Time')
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+#  total area change
+plt.figure(figsize=(8, 5))
+
+plt.plot(gydesc_exc['year'], gydesc_exc['area_sum_percdiff_to_y1'], marker='o', color = 'purple') # or area_sum_diff_from_y1
+
+plt.xlabel('Year')
+plt.ylabel('Perc Change from 2012 in Area Sum (ha)') #retitle as needed
+plt.title('Perc Change from 2012 in Total Area Over Time')
+plt.grid(True)
+plt.tight_layout()
+# save plot as png
+plt.savefig('reports/figures/ToF/totarech12_perc.png')
+
+plt.show()
+
+
+
