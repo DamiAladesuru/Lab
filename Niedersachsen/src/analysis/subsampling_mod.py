@@ -1,6 +1,121 @@
 # %%
-from src.analysis import gridgdf_desc2 as gd
-from src.analysis.raw import gld_desc_raw as gdr
+import os
+import pandas as pd
+
+from src.analysis.desc import gridgdf_desc as gd
+from src.analysis.desc import gld_desc_raw as gdr
+
+# %% subsampled dict at gld level
+def create_gld_ss(gld, column_x):
+    # Dictionary
+    gld_dict = {}
+
+    # Loop through each unique value in column_x
+    unique_values = gld[column_x].unique()
+    for value in unique_values:
+        # Filter gld for the current unique value
+        gld_ss = gld[gld[column_x] == value]
+        
+        gld_dict[value] = gld_ss
+
+    return gld_dict
+
+# call
+# gld_dict = create_gld_ss(gld_base, 'Gruppe')
+
+# %% creeate subsamples gridgdf dictionary
+def create_gridgdf_ss(gld, column_x):
+
+    output_dir = 'data/interim/gridgdf'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        
+    gridgdf_filename = os.path.join(output_dir, f'combined_gridgdf_{column_x}.pkl')
+        
+    # Dictionary to store gridgdf DataFrames for each unique value in column_x
+    gridgdf_dict = {}
+
+    # Loop through each unique value in column_x
+    unique_values = gld[column_x].unique()
+    for value in unique_values:
+        # Filter gld for the current unique value
+        gld_ext = gld[gld[column_x] == value]
+        
+        griddf = gd.create_griddf(gld_ext)
+        dupli = gd.check_duplicates(griddf)
+        
+        # calculate differences
+        griddf_ydiff = gd.calculate_yearlydiff(griddf)
+        griddf_exty1 = gd.calculate_diff_fromy1(griddf)
+        griddf_ext = gd.combine_griddfs(griddf_ydiff, griddf_exty1)
+                
+        # Add a column indicating the subsample value
+        griddf_ext['group'] = value
+        
+        gridgdf_raw = gd.to_gdf(griddf_ext)
+
+        # Store the gridgdf_raw in the dictionary
+        gridgdf_dict[value] = gridgdf_raw
+
+    # Combine all the DataFrames in the dictionary into one DataFrame
+    combined_gridgdf_ss = pd.concat(gridgdf_dict.values(), ignore_index=True)
+
+    # Save the combined DataFrame to a file
+    combined_filename = os.path.join(output_dir, f'combined_gridgdf_{column_x}.pkl')
+    if os.path.exists(gridgdf_filename):
+        print(f"Combined gridgdf for {column_x} already saved to {gridgdf_filename}")
+    else:
+        combined_gridgdf_ss.to_pickle(combined_filename)
+        print(f"Saved combined gridgdf to {combined_filename}")
+
+    return gridgdf_dict, combined_gridgdf_ss
+
+# call
+# gridgdf_dict, combined_gridgdf_ss = create_gridgdf_ss(gld_base, 'Gruppe')
+# gridgdf_dict contains individual DataFrames in a dictionary
+
+# %%
+def ss_desc(gridgdf_dict):
+    # Initialize dictionaries to store descriptives results
+    grid_allyears_dict = {}
+    grid_yearly_dict = {}
+
+    # Iterate over the gridgdf_dict
+    for key, gdf_subsample in gridgdf_dict.items():
+        # Silence prints and run desc_grid
+        grid_allyears_raw, grid_yearly_raw = gd.silence_prints(gd.desc_grid, gdf_subsample)
+        
+        # Add the key as a new column to identify the subsample
+        grid_allyears_raw['subsample'] = key
+        grid_yearly_raw['subsample'] = key
+        
+        # Store in dictionaries
+        grid_allyears_dict[key] = grid_allyears_raw
+        grid_yearly_dict[key] = grid_yearly_raw
+
+    # Combine all DataFrames into one for each type
+    combined_grid_allyears = pd.concat(grid_allyears_dict.values(), ignore_index=True)
+    combined_grid_yearly = pd.concat(grid_yearly_dict.values(), ignore_index=True)
+
+    # Return or use the combined DataFrames and dictionaries
+    result = {
+        'grid_allyears': grid_allyears_dict,
+        'grid_yearly': grid_yearly_dict,
+        'combined_grid_allyears': combined_grid_allyears,
+        'combined_grid_yearly': combined_grid_yearly
+    }
+    
+    return result
+
+# call
+# result = ss_desc(gridgdf_dict)
+# result['combined_grid_allyears'] contains the combined DataFrame for all subsamples
+# result['grid_allyears'] contains individual DataFrames in a dictionary
+
+
+#######################################
+# for subsampling specific groups
+#######################################
 
 # %%
 # Creating gridgdf without gld outliers i.e., relating to gld used for create_gridgdf func
