@@ -17,90 +17,73 @@ os.chdir("C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen")
 
 from src.data import dataload as dl
 from src.data import eca_new as eca
-from src.analysis.raw import gld_desc_raw as gdr
-
+from src.analysis.desc import gld_desc_raw as gdr
+from src.analysis.desc import gridgdf_desc as gd
 #
 def square_cpar(gld): #shape index adjusted for square fields
     gld['cpar2'] = ((0.25 * gld['peri_m']) / (gld['area_m2']**0.5))
     return gld
 
-
-# A.
+# %% new
 def create_griddf(gld):
-    columns = ['CELLCODE', 'year', 'LANDKREIS']
+    """
+    Create a griddf DataFrame with aggregated statistics that summarize field data.
+
+    Parameters:
+    gld (pd.DataFrame): Input DataFrame with columns ['CELLCODE', 'year', 'LANDKREIS'] 
+                        and additional numeric columns for aggregation.
+
+    Returns:
+    pd.DataFrame: A DataFrame with unique CELLCODE, year, and LANDKREIS rows,
+                  enriched with aggregated fields.
+    """
+    import logging
+    required_columns = ['CELLCODE', 'year', 'LANDKREIS', 'geometry',\
+        'Gruppe', 'area_m2', 'area_ha', 'peri_m', 'par']
+    missing = [col for col in required_columns if col not in gld.columns]
+    if missing:
+        raise ValueError(f"Input DataFrame is missing required columns: {missing}")
     
-    # 1. Extract the specified columns and drop duplicates
+    # Step 1: Create base griddf
+    columns = ['CELLCODE', 'year', 'LANDKREIS']
     griddf = gld[columns].drop_duplicates().copy()
     logging.info(f"Created griddf with shape {griddf.shape}")
     logging.info(f"Columns in griddf: {griddf.columns}")
-    
-    # 2. Compute mean statistics at grid level
-    # for statistics, group by year and cellcode because you want to look at each year
-    # and each grid cell and compute the statistics for each grid cell
-    # Number of fields per grid
-    fields = gld.groupby(['CELLCODE', 'year'])['geometry'].count().reset_index()
-    fields.columns = ['CELLCODE', 'year', 'fields']
-    griddf = pd.merge(griddf, fields, on=['CELLCODE', 'year'])
 
-    # Number of unique groups per grid
-    group_count = gld.groupby(['CELLCODE', 'year'])['Gruppe'].nunique().reset_index()
-    group_count.columns = ['CELLCODE', 'year', 'group_count']
-    griddf = pd.merge(griddf, group_count, on=['CELLCODE', 'year'])
+    # Helper function for aggregation
+    def add_aggregated_column(griddf, gld, column, aggfunc, new_col):
+        logging.info(f"Adding column '{new_col}' using '{aggfunc}' on '{column}'.")
+        temp = gld.groupby(['CELLCODE', 'year'])[column].agg(aggfunc).reset_index()
+        temp.columns = ['CELLCODE', 'year', new_col]
+        return pd.merge(griddf, temp, on=['CELLCODE', 'year'], how='left')
 
-    # Sum of field size per grid (m2)
-    fsm2_sum = gld.groupby(['CELLCODE', 'year'])['area_m2'].sum().reset_index()
-    fsm2_sum.columns = ['CELLCODE', 'year', 'fsm2_sum']
-    griddf = pd.merge(griddf, fsm2_sum, on=['CELLCODE', 'year'])
-    
-    # Sum of field size per grid (ha)
-    fsha_sum = gld.groupby(['CELLCODE', 'year'])['area_ha'].sum().reset_index()
-    fsha_sum.columns = ['CELLCODE', 'year', 'fsha_sum']
-    griddf = pd.merge(griddf, fsha_sum, on=['CELLCODE', 'year'])
+    # Define aggregations
+    aggregations = [
+        {'column': 'geometry', 'aggfunc': 'count', 'new_col': 'fields'},
+        {'column': 'Gruppe', 'aggfunc': 'nunique', 'new_col': 'group_count'},
+        {'column': 'area_m2', 'aggfunc': 'sum', 'new_col': 'fsm2_sum'},
+        {'column': 'area_ha', 'aggfunc': 'sum', 'new_col': 'fsha_sum'},
+        {'column': 'peri_m', 'aggfunc': 'sum', 'new_col': 'peri_sum'},
+        {'column': 'par', 'aggfunc': 'sum', 'new_col': 'par_sum'},
+        {'column': 'area_ha', 'aggfunc': 'mean', 'new_col': 'mfs_ha'},
+        {'column': 'peri_m', 'aggfunc': 'mean', 'new_col': 'mperi'},
+        {'column': 'par', 'aggfunc': 'mean', 'new_col': 'mpar'},
+        {'column': 'area_ha', 'aggfunc': 'median', 'new_col': 'medfs_ha'},
+        {'column': 'peri_m', 'aggfunc': 'median', 'new_col': 'medperi'},
+        {'column': 'par', 'aggfunc': 'median', 'new_col': 'medpar'},
+    ]
 
-    # Mean field size per grid
-    griddf['mfs_ha'] = (griddf['fsha_sum'] / griddf['fields'])
-    
-    # Median field size per grid
-    griddf['medfs_ha'] = gld.groupby(['CELLCODE', 'year'])['area_ha'].median().reset_index()['area_ha']
-
-    # Sum of field perimeter per grid
-    peri_sum = gld.groupby(['CELLCODE', 'year'])['peri_m'].sum().reset_index()
-    peri_sum.columns = ['CELLCODE', 'year', 'peri_sum']
-    griddf = pd.merge(griddf, peri_sum, on=['CELLCODE', 'year'])
-
-    # Mean perimeter per grids
-    griddf['mperi'] = (griddf['peri_sum'] / griddf['fields'])
-    
-    # Median perimeter per grid
-    griddf['medperi'] = gld.groupby(['CELLCODE', 'year'])['peri_m'].median().reset_index()['peri_m']
+    # Apply each aggregation
+    for agg in aggregations:
+        griddf = add_aggregated_column(griddf, gld, agg['column'], agg['aggfunc'], agg['new_col'])
 
     # Rate of fields per hectare of land per grid
     griddf['fields_ha'] = (griddf['fields'] / griddf['fsha_sum'])
-    
-    ######################################################################
-    #Shape
-    ######################################################################
-    # perimeter to area ratio
-    # Sum of par per grid
-    par_sum = gld.groupby(['CELLCODE', 'year'])['par'].sum().reset_index()
-    par_sum.columns = ['CELLCODE', 'year', 'par_sum']
-    griddf = pd.merge(griddf, par_sum, on=['CELLCODE', 'year'])
 
-    # Mean par per grid
-    griddf['mean_par'] = (griddf['par_sum'] / griddf['fields'])
-    
-    # Median par per grid
-    griddf['medpar'] = gld.groupby(['CELLCODE', 'year'])['par'].median().reset_index()['par']
-    
-    # p/a ratio of grid as sum of peri divided by sum of area per grid
-    #griddf['grid_par'] = ((griddf['peri_sum'] / griddf['fsm2_sum'])) #compare to mean par 
-    
-    griddf = griddf.drop(columns=['par_sum', 'fsm2_sum'])
-    
     return griddf
 
 
-# check for duplicates in the griddf
+# %% check for duplicates in the griddf
 def check_duplicates(griddf):
     duplicates = griddf[griddf.duplicated(subset=['CELLCODE', 'year'], keep=False)]
     print(f"Number of duplicates in griddf: {duplicates.shape[0]}")
@@ -201,7 +184,7 @@ def to_gdf(griddf_ext):
     return gridgdf
 
 
-# B.
+# %% B.
 #########################################################################
 # compute mean and median for columns in gridgdf. save the results to a csv file
 def desc_grid(gridgdf):
@@ -231,59 +214,67 @@ def desc_grid(gridgdf):
             fields_sum=('fields', 'sum'),
             fields_mean=('fields', 'mean'),
             fields_std = ('fields', 'std'),
-            fields_av_yearly_diff=('fields_yearly_diff', 'mean'),
-            fields_adiff_y1=('fields_diff_from_y1', 'mean'),
-            fields_apercdiff_y1=('fields_percdiff_to_y1', 'mean'),
+            fields_av_yearlydiff=('fields_yearly_diff', 'mean'),
+            fields_adiffy1=('fields_diff_from_y1', 'mean'),
+            fields_apercdiffy1=('fields_percdiff_to_y1', 'mean'),
                     
             group_count_mean=('group_count', 'mean'),
-            group_count_av_yearly_diff=('group_count_yearly_diff', 'mean'),
-            group_count_adiff_y1=('group_count_diff_from_y1', 'mean'),
-            group_count_apercdiff_y1=('group_count_percdiff_to_y1', 'mean'),
+            group_count_av_yearlydiff=('group_count_yearly_diff', 'mean'),
+            group_count_adiffy1=('group_count_diff_from_y1', 'mean'),
+            group_count_apercdiffy1=('group_count_percdiff_to_y1', 'mean'),
 
             fsha_sum_sum=('fsha_sum', 'sum'),
             fsha_sum_mean=('fsha_sum', 'mean'),
             fsha_sum_std = ('fsha_sum', 'std'),
-            fsha_sum_av_yearly_diff=('fsha_sum_yearly_diff', 'mean'),
-            fsha_sum_adiff_y1=('fsha_sum_diff_from_y1', 'mean'),
-            fsha_sum_apercdiff_y1=('fsha_sum_percdiff_to_y1', 'mean'),
+            fsha_sum_av_yearlydiff=('fsha_sum_yearly_diff', 'mean'),
+            fsha_sum_adiffy1=('fsha_sum_diff_from_y1', 'mean'),
+            fsha_sum_apercdiffy1=('fsha_sum_percdiff_to_y1', 'mean'),
 
             mfs_ha_mean=('mfs_ha', 'mean'),
             mfs_ha_std=('mfs_ha', 'std'),
-            mfs_ha_av_yearly_diff=('mfs_ha_yearly_diff', 'mean'),
-            mfs_ha_adiff_y1=('mfs_ha_diff_from_y1', 'mean'),
-            mfs_ha_apercdiff_y1=('mfs_ha_percdiff_to_y1', 'mean'),
+            mfs_ha_av_yearlydiff=('mfs_ha_yearly_diff', 'mean'),
+            mfs_ha_adiffy1=('mfs_ha_diff_from_y1', 'mean'),
+            mfs_ha_apercdiffy1=('mfs_ha_percdiff_to_y1', 'mean'),
 
-            medfs_ha_mean=('medfs_ha', 'mean'),
-            medfs_ha_std=('medfs_ha', 'std'),
-            medfs_ha_av_yearly_diff=('medfs_ha_yearly_diff', 'mean'),
-            medfs_ha_adiff_y1=('medfs_ha_diff_from_y1', 'mean'),
-            medfs_ha_apercdiff_y1=('medfs_ha_percdiff_to_y1', 'mean'),
+            med_fsha_mean=('medfs_ha', 'mean'),
+            med_fsha_std=('medfs_ha', 'std'),
+            med_fsha_av_yearlydiff=('medfs_ha_yearly_diff', 'mean'),
+            med_fsha_adiffy1=('medfs_ha_diff_from_y1', 'mean'),
+            med_fsha_apercdiffy1=('medfs_ha_percdiff_to_y1', 'mean'),
 
-            mperi_mean=('mperi', 'mean'), #averge region's mean perimeter
+            med_fsha_med=('medfs_ha', 'median'),
+            med_fsha_yearlydiff_med=('medfs_ha_yearly_diff', 'median'),
+            med_fsha_diffy1_med=('medfs_ha_diff_from_y1', 'median'),
+            med_fsha_percdiffy1_med=('medfs_ha_percdiff_to_y1', 'median'),            
+
+            mperi_mean=('mperi', 'mean'), #averge mean perimeter
             mperi_std = ('mperi', 'std'),
-            mperi_av_yearly_diff=('mperi_yearly_diff', 'mean'),
-            mperi_adiff_y1=('mperi_diff_from_y1', 'mean'),
-            mperi_apercdiff_y1=('mperi_percdiff_to_y1', 'mean'),
+            mperi_av_yearlydiff=('mperi_yearly_diff', 'mean'),
+            mperi_adiffy1=('mperi_diff_from_y1', 'mean'),
+            mperi_apercdiffy1=('mperi_percdiff_to_y1', 'mean'),
 
-            mean_par_mean=('mean_par', 'mean'),
-            mean_par_std=('mean_par', 'std'),
-            mean_par_av_yearly_diff=('mean_par_yearly_diff', 'mean'),
-            mean_par_adiff_y1=('mean_par_diff_from_y1', 'mean'),
-            mean_par_apercdiff_y1=('mean_par_percdiff_to_y1', 'mean'),
+            mpar_mean=('mpar', 'mean'),
+            mpar_std=('mpar', 'std'),
+            mpar_av_yearlydiff=('mpar_yearly_diff', 'mean'),
+            mpar_adiffy1=('mpar_diff_from_y1', 'mean'),
+            mpar_apercdiffy1=('mpar_percdiff_to_y1', 'mean'),
             
-
             medpar_mean=('medpar', 'mean'),
             medpar_std=('medpar', 'std'),
-            medpar_av_yearly_diff=('medpar_yearly_diff', 'mean'),
-            medpar_adiff_y1=('medpar_diff_from_y1', 'mean'),
-            medpar_apercdiff_y1=('medpar_percdiff_to_y1', 'mean'),
-            
+            medpar_av_yearlydiff=('medpar_yearly_diff', 'mean'),
+            medpar_adiffy1=('medpar_diff_from_y1', 'mean'),
+            medpar_apercdiffy1=('medpar_percdiff_to_y1', 'mean'),
+
+            medpar_med=('medpar', 'median'),
+            medpar_yearlydiff_med=('medpar_yearly_diff', 'median'),
+            medpar_diffy1_med=('medpar_diff_from_y1', 'median'),
+            medpar_percdiffy1_med=('medpar_percdiff_to_y1', 'median'),
             
             fields_ha_mean=('fields_ha', 'mean'),
             fields_ha_std=('fields_ha', 'std'),
-            fields_ha_av_yearly_diff=('fields_ha_yearly_diff', 'mean'),
-            fields_ha_adiff_y1=('fields_ha_diff_from_y1', 'mean'),
-            fields_ha_apercdiff_y1=('fields_ha_percdiff_to_y1', 'mean')
+            fields_ha_av_yearlydiff=('fields_ha_yearly_diff', 'mean'),
+            fields_ha_adiffy1=('fields_ha_diff_from_y1', 'mean'),
+            fields_ha_apercdiffy1=('fields_ha_percdiff_to_y1', 'mean')
 
         ).reset_index()
             
@@ -329,19 +320,15 @@ def adjust_gld():
     return gld
 
 gld = adjust_gld()
-# %%
-glda = gld[~gld['LANDKREIS'].isin(['Küstenmeer Region Weser-Ems', 'Lüneburg', 'Helmstedt'])]
-glda =glda[~(glda['area_m2'] < 300)]
-# %%
+
+#############################################################
+# %% remove rows of 100m2 from gld
+#############################################################
 gld100 =gld[~(gld['area_m2'] < 100)]
 
 # %%
-gldf = gld[~gld['LANDKREIS'].isin(['Küstenmeer Region Weser-Ems', 'Lüneburg', 'Helmstedt'])]
-
-# %%
-def create_gridgdf_raw(loadedgld, gridfile_suf,
-                       t=100, apply_t=False,
-                       gld_file='data/interim/gldkc_min100.pkl'): #base file is gld_wtkc.pkl
+def create_gridgdf_raw(loadedgld=None, gridfile_suf=None,
+                       t=100, apply_t=False): #base file is gld_wtkc.pkl
     output_dir = 'data/interim/gridgdf'
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -356,9 +343,8 @@ def create_gridgdf_raw(loadedgld, gridfile_suf,
         gld_ext = loadedgld
     else:    
         # Load gld, applying threshold t filtering only if specified
-        gld_ext = gdr.adjust_gld(t=t, filename=gld_file,
-                                apply_t=apply_t)
-
+        gld_ext = gdr.adjust_gld(t=t, apply_t=apply_t)
+ 
     if os.path.exists(gridgdf_filename):
         gridgdf_raw = pd.read_pickle(gridgdf_filename)
         print(f"Loaded gridgdf from {gridgdf_filename}")
@@ -387,31 +373,23 @@ def create_gridgdf_raw(loadedgld, gridfile_suf,
     return gld_ext, gridgdf_raw
 
 # %%
-_, gridgdf100 = create_gridgdf_raw(loadedgld = gld100, gridfile_suf='0912')
+_, gridgdf = create_gridgdf_raw(loadedgld=gld100)
 
-_, grid_yearly_100 = silence_prints(desc_grid, gridgdf100)
+_, grid_yearly = silence_prints(desc_grid, gridgdf)
 
-# %%
-
-# %%
-gldf_max100 =gld[(gld['area_m2'] < 100)]
-gldf_max100df =gldf_max100.drop(columns='geometry')
-
-# %% creeate subsamples gridgdf
-def create_gridgdf_ss(gld, column_x, filename_suffix='ss'):
+############################
+# working with subsamples
+############################
+# %% creeate subsamples gridgdf dictionary
+def create_gridgdf_ss(gld, column_x):
 
     output_dir = 'data/interim/gridgdf'
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
         
-    gridgdf_filename = os.path.join(output_dir, f'combined_gridgdf_{filename_suffix}.pkl')
+    gridgdf_filename = os.path.join(output_dir, f'combined_gridgdf_{column_x}.pkl')
         
-    if os.path.exists(gridgdf_filename):
-        combined_gridgdf_ss = pd.read_pickle(gridgdf_filename)
-        print(f"Loaded gridgdf for {column_x} from {gridgdf_filename}")
-        return None, combined_gridgdf_ss
-    
-    # Dictionary to store gridgdf_raw DataFrames for each unique value in column_x
+    # Dictionary to store gridgdf DataFrames for each unique value in column_x
     gridgdf_dict = {}
 
     # Loop through each unique value in column_x
@@ -420,18 +398,18 @@ def create_gridgdf_ss(gld, column_x, filename_suffix='ss'):
         # Filter gld for the current unique value
         gld_ext = gld[gld[column_x] == value]
         
-        griddf = grdr.create_griddf(gld_ext)
-        dupli = grdr.check_duplicates(griddf)
+        griddf = gd.create_griddf(gld_ext)
+        dupli = gd.check_duplicates(griddf)
         
         # calculate differences
-        griddf_ydiff = grdr.calculate_yearlydiff(griddf)
-        griddf_exty1 = grdr.calculate_diff_fromy1(griddf)
-        griddf_ext = grdr.combine_griddfs(griddf_ydiff, griddf_exty1)
+        griddf_ydiff = gd.calculate_yearlydiff(griddf)
+        griddf_exty1 = gd.calculate_diff_fromy1(griddf)
+        griddf_ext = gd.combine_griddfs(griddf_ydiff, griddf_exty1)
                 
         # Add a column indicating the subsample value
         griddf_ext['group'] = value
         
-        gridgdf_raw = grdr.to_gdf(griddf_ext)
+        gridgdf_raw = gd.to_gdf(griddf_ext)
 
         # Store the gridgdf_raw in the dictionary
         gridgdf_dict[value] = gridgdf_raw
@@ -440,14 +418,17 @@ def create_gridgdf_ss(gld, column_x, filename_suffix='ss'):
     combined_gridgdf_ss = pd.concat(gridgdf_dict.values(), ignore_index=True)
 
     # Save the combined DataFrame to a file
-    combined_filename = os.path.join(output_dir, f'combined_gridgdf_{filename_suffix}.pkl')
-    combined_gridgdf_ss.to_pickle(combined_filename)
-    print(f"Saved combined gridgdf to {combined_filename}")
+    combined_filename = os.path.join(output_dir, f'combined_gridgdf_{column_x}.pkl')
+    if os.path.exists(gridgdf_filename):
+        print(f"Combined gridgdf for {column_x} already saved to {gridgdf_filename}")
+    else:
+        combined_gridgdf_ss.to_pickle(combined_filename)
+        print(f"Saved combined gridgdf to {combined_filename}")
 
     return gridgdf_dict, combined_gridgdf_ss
 
 # %%
-gridgdf_dict, combined_gridgdf_ss = create_gridgdf_ss(gld_base, 'Gruppe', 'basess')
+gridgdf_dict, combined_gridgdf_ss = create_gridgdf_ss(gld_base, 'Gruppe')
 
 # %% subsampled dict at gld level
 def create_gld_ss(gld, column_x):
@@ -466,65 +447,15 @@ def create_gld_ss(gld, column_x):
 
 gld_dict = create_gld_ss(gld_base, 'Gruppe')
 
-
 # %%
-# Iterate over the dictionary returned by create_gridgdf_ss
-for subsample_name, subsample in gridgdf_dict.items():
-    unique_years = sorted(subsample['year'].unique())
-    stack_plots_in_grid(
-        subsample, 
-        unique_years, 
-        scatterplot_mpar_marea, 
-        ncols=4, 
-        figsize=(25, 15), 
-        grid_title=f"Scatterplots for Subsample {subsample_name}"  # Use the subsample name for naming
-    )
-
-
-# %%
-# Iterate over the dictionary returned by create_gld_ss
-for subsample_name, subsample in gld_dict.items():
-    unique_years = sorted(subsample['year'].unique())
-    stack_plots_in_grid(
-        subsample, 
-        unique_years, 
-        scatterplot_par_area, 
-        ncols=4, 
-        figsize=(25, 15), 
-        grid_title=f"{subsample_name}"  # Use the subsample name for naming
-    )
-# %%
-# Set the plot style
-sns.set(style="whitegrid")
-
-# Create a figure
-plt.figure(figsize=(12, 6))
-
-# Create a line plot for each category with custom colors
-sns.lineplot(data=result['combined_grid_yearly'], x='year', y='mfs_ha_mean', hue='subsample',
-             marker='o')
-
-# Add titles and labels
-plt.title('Trend of Average MFS (ha) for Each Crop Group Over Time')
-plt.xlabel('Year')
-plt.ylabel('Average MFS (ha)')
-#plt.legend(title='Crop Group', bbox_to_anchor=(1.05, 1), loc='right')
-
-# Remove the top and right spines
-sns.despine(left=True, bottom=True)
-
-# Show the plot
-plt.show()
-
-# %%
-# Initialize dictionaries to store results
+# Initialize dictionaries to store descriptives results
 grid_allyears_dict = {}
 grid_yearly_dict = {}
 
 # Iterate over the gridgdf_dict
 for key, gdf_subsample in gridgdf_dict.items():
     # Silence prints and run desc_grid
-    grid_allyears_raw, grid_yearly_raw = grdr.silence_prints(grdr.desc_grid, gdf_subsample)
+    grid_allyears_raw, grid_yearly_raw = gd.silence_prints(gd.desc_grid, gdf_subsample)
     
     # Add the key as a new column to identify the subsample
     grid_allyears_raw['subsample'] = key
@@ -549,20 +480,3 @@ result = {
 # Example usage:
 # result['combined_grid_allyears'] contains the combined DataFrame for all subsamples
 # result['grid_allyears'] contains individual DataFrames in a dictionary
-
-# %%
-for key, gdf in gridgdf_dict.items():
-    # Convert the GeoDataFrame to EPSG 4326
-    geoData = gdf.to_crs(epsg=4326)
-    
-    # Plot the choropleth, including the key as part of the title
-    plot_facet_choropleth_with_geoplot(
-        geoData, 
-        column='mean_par', 
-        cmap='plasma', 
-        year_col='year', 
-        ncols=4, 
-        title=f"Choropleth for Subsample: {key}"
-    )
-
-# %%

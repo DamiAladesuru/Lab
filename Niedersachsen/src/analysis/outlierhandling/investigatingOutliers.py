@@ -6,6 +6,8 @@ import joypy
 from matplotlib import cm
 import matplotlib.pyplot as plt
 
+from src.visualization import plotting_module as pm
+
 # %%
 os.chdir("C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen")
 
@@ -131,12 +133,12 @@ plt.show()
 ###########################
 # %% scatter gld
 unique_years = sorted(gldno100['year'].unique())
-stack_plots_in_grid(gld_, unique_years, scatterplot_par_area, "area_ha_log", "par_log", ncols=4, figsize=(25, 15))
+pm.stack_plots_in_grid(gld_, unique_years, scatterplot_par_area, "area_ha_log", "par_log", ncols=4, figsize=(25, 15))
 
 # %% scatter gridgdf
 #d = gridgdfnoout_[~(gridgdfnoout_['fields_zscore'] < -1.55)]
 unique_years = sorted(gridgdf['year'].unique())
-stack_plots_in_grid(gridgdf_, unique_years, scatterplot_mpar_marea, "fields", "medpar", ncols=4, figsize=(25, 15))
+pm.stack_plots_in_grid(gridgdf_, unique_years, pm.scatterplot_mpar_marea, "fields", "medpar", ncols=4, figsize=(25, 15))
 
 
 ###########################
@@ -239,7 +241,7 @@ fig, axes = joypy.joyplot(df, by="year", column="mean_par", labels=labels, range
                           colormap=cm.autumn)
 
 # %% yearly joyplot
-create_yearly_joyplot(gld_no4, 'Gruppe', 'par', "PAR distribution in {year}")
+pm.create_yearly_joyplot(gld_no4, 'Gruppe', 'par', "PAR distribution in {year}")
 
 ###########################
 # hist plots
@@ -259,7 +261,7 @@ hist_all_years(gridgdfout__, 'medfs_ha')
 ###########################
 # %%
 geoData = polygons_within_10km_inside.to_crs(epsg=4326)
-plot_facet_choropleth_with_geoplot(geoData, column='medfs_ha_percdiff_to_y1', cmap='plasma', year_col='year', ncols=4)
+pm.plot_facet_choropleth_with_geoplot(geoData, column='medfs_ha_percdiff_to_y1', cmap='plasma', year_col='year', ncols=4)
 
 ###########################
 # plot fields and grids
@@ -397,7 +399,7 @@ plt.figure(figsize=(12, 6))
 ax = sns.boxplot(data=data, x='year', y='medpar')
 
 # %%
-stack_plots_in_grid(gridgdf_, unique_years, scatterplot_mpar_marea, "fields", "medpar", ncols=4, figsize=(25, 15))
+pm.stack_plots_in_grid(gridgdf_, unique_years, pm.scatterplot_mpar_marea, "fields", "medpar", ncols=4, figsize=(25, 15))
 
 
 ####################################################################
@@ -470,5 +472,5 @@ plt.figure(figsize=(12, 6))
 ax = sns.boxplot(data=data, x='year', y='medpar')
 
 # %% examine scatter plot of medpar and fields
-stack_plots_in_grid(data, unique_years, scatterplot_mpar_marea, "fields", "medpar", ncols=4, figsize=(25, 15))
+pm.stack_plots_in_grid(data, unique_years, pm.scatterplot_mpar_marea, "fields", "medpar", ncols=4, figsize=(25, 15))
 # plot should look like plot for gridgdf_
