@@ -1,10 +1,7 @@
 '''viewing on folium'''
 # %%
-import os
-import numpy as np
 import folium
 import folium.plugins
-from IPython.display import display
 
 # %%
 def plot_gdf_on_map(gdf, value_column='area_ha', title='Field Size', zoom_start=10):
@@ -162,9 +159,66 @@ def plot_gridgdf_on_map(gdf, value_column='', title='', zoom_start=10):
 
 
 # %%
-grid = plot_gridgdf_on_map(g, value_column='mfs_ha', title='MFS')
+grid = plot_gridgdf_on_map(bufferedout, value_column='mfs_ha', title='MFS')
 # Save the map to an HTML file
 grid.save('grid.html')
 grid
 
+# %%
+def show_unique_on_map(gdf, value_column='col1', title='Unique Values', zoom_start=10):
+    """
+    Plot a GeoDataFrame on a Folium map with annotations for a categorical column.
+    
+    Parameters:
+    gdf (GeoDataFrame): The GeoDataFrame to plot
+    value_column (str): The column to use for annotations (default: 'col1')
+    title (str): The title for the choropleth legend (default: 'Unique Values')
+    zoom_start (int): Initial zoom level for the map (default: 10)
+    
+    Returns:
+    folium.Map: A Folium map object
+    """
+    
+    # Reset index and rename for consistency
+    gdf = gdf.reset_index().rename(columns={'index': 'id'})
+
+    # Reproject to EPSG:4326 for Folium visualization
+    gdf = gdf.to_crs("EPSG:4326")
+
+    # Calculate centroids (using EPSG:32632 for accuracy, then converting back)
+    gdf_projected = gdf.to_crs("EPSG:32632")
+    gdf_projected['centroid'] = gdf_projected.geometry.centroid
+    gdf['centroid'] = gdf_projected['centroid'].to_crs("EPSG:4326").apply(lambda geom: [geom.y, geom.x])
+
+    # Extract latitude and longitude from centroids
+    latitudes = gdf['centroid'].apply(lambda x: x[0])
+    longitudes = gdf['centroid'].apply(lambda x: x[1])
+
+    # Calculate mean latitude and longitude
+    mean_lat = latitudes.mean()
+    mean_lon = longitudes.mean()
+
+    # Initialize a Folium map centered on the mean centroid
+    m = folium.Map(location=[mean_lat, mean_lon], zoom_start=zoom_start)
+
+    # Add markers for each unique value in the specified column
+    for idx, row in gdf.iterrows():
+        folium.Marker(
+            location=row['centroid'],
+            popup=f"{value_column}: {row[value_column]}",
+            tooltip=row[value_column]
+        ).add_to(m)
+
+    # Add a title to the map
+    title_html = f'''
+        <h3 align="center" style="font-size:20px"><b>{title}</b></h3>
+        '''
+    m.get_root().html.add_child(folium.Element(title_html))
+
+    return m
+
+# Example usage
+# %%
+m = show_unique_on_map(ggdf, value_column='CELLCODE', title='unique_CELLCODE_zscoredoutdf')
+m
 # %%
