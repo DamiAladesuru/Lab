@@ -7,6 +7,8 @@ import pickle
 import matplotlib.pyplot as plt
 from joypy import joyplot
 import seaborn as sns
+import geoplot as gplt
+import matplotlib.pyplot as plt
 
 # %%
 # Global dictionary to store colors for each label after first plot
@@ -256,4 +258,54 @@ def create_yearly_joyplot(df, by_column, plot_column, title_template):
 # call
 #create_yearly_joyplot(gld_no4, 'Gruppe', 'par', "PAR distribution in {year}")
 
+########################
+# choropleth map geoplot
+########################
+# %% facet grid of chloropleth maps: sequential
+def plot_facet_choropleth_with_geoplot(gdf, column, cmap='viridis', year_col='year', ncols=4, title=""):
+    # Get unique years
+    unique_years = sorted(gdf[year_col].unique())
+    nrows = (len(unique_years) + ncols - 1) // ncols  # Calculate rows based on ncols
 
+    # Create the figure and axes
+    fig, axes = plt.subplots(
+        nrows=nrows, ncols=ncols, figsize=(5 * ncols, 5 * nrows), 
+        subplot_kw={'projection': gplt.crs.AlbersEqualArea()}  # Use an appropriate CRS
+    )
+    axes = axes.flatten()  # Flatten axes for easy iteration
+
+    # Plot each year's choropleth map
+    for i, year in enumerate(unique_years):
+        ax = axes[i]
+        
+        # Subset GeoDataFrame for the current year
+        gdf_year = gdf[gdf[year_col] == year]
+        
+        # Plot the choropleth map
+        gplt.choropleth(
+            gdf_year,
+            hue=column,
+            cmap=cmap,
+            edgecolor='black',
+            linewidth=0.5,
+            ax=ax,
+            legend=True,
+        )
+        # Add title
+        ax.set_title(f"Year: {year}", fontsize=12)
+    
+    # Turn off unused subplots
+    for j in range(i + 1, len(axes)):
+        fig.delaxes(axes[j])
+
+    # Add overall title
+    if title:
+        fig.suptitle(title, fontsize=18, y=1.02)
+
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.9)
+    plt.show()
+
+# Example Usage
+# Assuming `geoData` is your GeoDataFrame with 'year' and 'medpar' columns
+#plot_facet_choropleth_with_geoplot(geoData, column='medpar', cmap='plasma', year_col='year', ncols=4)
