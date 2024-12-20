@@ -302,5 +302,97 @@ plt.savefig('reports/figures/ToF/totarech12_perc.png')
 
 plt.show()
 
+###################################################
+# work with dicctionaries of dataframes
+###################################################
+'''e.g., dictionaries created in datamani or''' 
+from src.analysis import subsampling_mod as ssm
+gridgdf_dict, combined_gridgdf_ss = ssm.create_gridgdf_ss(gld_base, 'Gruppe')
+result = ssm.ss_desc(gridgdf_dict)
+
+#gld_dict, combined_gld_ss = ssm.create_gld_ss(gld_base, 'category3')
+# %%
+# Iterate over the dictionary returned by create_gridgdf_ss
+for subsample_name, subsample in gridgdf_dict.items():
+    unique_years = sorted(subsample['year'].unique())
+    pm.stack_plots_in_grid(
+        subsample, 
+        unique_years, 
+        pm.scatterplot_mpar_marea,
+        col1 = "fields",
+        col2 = "medpar",
+        ncols=4, 
+        figsize=(25, 15), 
+        grid_title=f"Scatterplots for Subsample {subsample_name}"  # Use the subsample name for naming
+    )
 
 
+# %%
+# Iterate over the dictionary returned by create_gld_ss
+for subsample_name, subsample in gld_dict.items():
+    unique_years = sorted(subsample['year'].unique())
+    pm.stack_plots_in_grid(
+        subsample, 
+        unique_years, 
+        pm.scatterplot_par_area,
+        col1 = "",
+        col2 = "",
+        ncols=4, 
+        figsize=(25, 15), 
+        grid_title=f"{subsample_name}"  # Use the subsample name for naming
+    )
+# %%
+# Set the plot style
+sns.set(style="whitegrid")
+
+# Create a figure
+plt.figure(figsize=(12, 6))
+
+# Create a line plot for each category with custom colors
+sns.lineplot(data=result['combined_grid_yearly'], x='year', y='mfs_ha_mean', hue='subsample',
+             marker='o')
+
+# Add titles and labels
+plt.title('Trend of Average MFS (ha) for Each Crop Group Over Time')
+plt.xlabel('Year')
+plt.ylabel('Average MFS (ha)')
+#plt.legend(title='Crop Group', bbox_to_anchor=(1.05, 1), loc='right')
+
+# Remove the top and right spines
+sns.despine(left=True, bottom=True)
+
+# Show the plot
+plt.show()
+
+
+# %%
+for key, gdf in gridgdf_dict.items():
+    # Convert the GeoDataFrame to EPSG 4326
+    geoData = gdf.to_crs(epsg=4326)
+    
+    # Plot the choropleth, including the key as part of the title
+    pm.plot_facet_choropleth_with_geoplot(
+        geoData, 
+        column='mpar', 
+        cmap='plasma', 
+        year_col='year', 
+        ncols=4, 
+        title=f"Choropleth for Subsample: {key}"
+    )
+
+############################################
+# maps
+############################################
+geoData = gdf.to_crs(epsg=4326)
+# %% simple plot
+geoData.plot()
+
+# %% subset data to plot single data
+g_23 = geoData[geoData['year'] == 2023]
+
+# %% or loop through years
+for year in geoData['year'].unique():
+    g_year = geoData[geoData['year'] == year]
+    g_year.plot()
+    plt.title(f'Year {year}')
+    plt.show()
