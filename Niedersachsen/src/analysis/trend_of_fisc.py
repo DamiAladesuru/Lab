@@ -4,28 +4,21 @@ import os
 
 os.chdir("C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen")
 
-from src.analysis.raw import gridgdf_desc_raw as grdr
-from src.analysis import gridgdf_desc2 as gd
+from src.analysis.desc import gridgdf_desc as gd
 from src.visualization import plotting_module as pm
 
-''' in pm, we have intialize_plotting which we have to run first to set up the color dictionary and plot
+''' We use this script to visualize FiSC. In pm, we have intialize_plotting which we have to run first to set up the color dictionary and plot
  for the first time. After that we can use other functions directly and metric colors will be consistent across all plots.'''
 
 # %% load data
-gld_ext, gridgdf_raw = grdr.silence_prints(grdr.create_gridgdf_raw, include_sonstige=True, filename_suffix='nole100') 
-#gld_ext, gridgdf_raw = grdr.silence_prints(grdr.create_gridgdf_raw, include_sonstige=True)
-#if include_sonstige = True, the data will include 'sonstige flächen' in the data and for that, you should not specify filename_suffix
-grid_allyears_raw, grid_yearly_raw = grdr.silence_prints(grdr.desc_grid,gridgdf_raw)
-
-
-# %% without 'outlier' in gld and gridgdf
-#gld_trimmed, gridgdf = gd.create_gridgdf()
-#grid_allyears_stats, grid_yearly_stats = gd.desc_grid(gridgdf)
+gld, gridgdf = gd.silence_prints(gd.create_gridgdf)
+gridgdf_cl, _ = gd.clean_gridgdf(gridgdf)
+_, grid_yearly = gd.silence_prints(gd.desc_grid,gridgdf_cl)
 
 # %% define objects for plotting
-multiline_df = grid_yearly_raw
-#correlation_df = gridgdf_raw
-#correlation_wtoutlier = gridgdf_raw
+multiline_df = grid_yearly
+#correlation_df = gridgdf_cl
+#correlation_wtoutlier = gridgdf
 
 # %%
 # Define the path for the color dictionary
@@ -37,10 +30,10 @@ pm.initialize_plotting(
     title='Trend of Absolute Change in Field Metric Value Over Time',
     ylabel='Average Absolute Change',
     metrics={
-        'MFS': 'mfs_ha_adiff_y1',
-        'mperi': 'mperi_adiff_y1',
-        'MeanPAR': 'mean_par_adiff_y1',
-        'Fields/Ha': 'fields_ha_adiff_y1'
+        'MFS': 'mfs_ha_adiffy1',
+        'mperi': 'mperi_adiffy1',
+        'MeanPAR': 'mpar_adiffy1',
+        'Fields/Ha': 'fields_ha_adiffy1'
     },
     color_dict_path=color_dict_path
 )
@@ -51,10 +44,11 @@ pm.multimetric_plot(
     title='Trend of Change in Field Metric Value Over Time',
     ylabel = 'Av. Percentage Change in Field Metric Value from 2012',
     metrics={
-        'mperi': 'mperi_apercdiff_y1',
-        'MFS': 'mfs_ha_apercdiff_y1',
-        'Fields/Ha': 'fields_ha_apercdiff_y1',
-        'MeanPAR': 'mean_par_apercdiff_y1'
+
+        'MFS': 'mfs_ha_apercdiffy1',
+        'mperi': 'mperi_apercdiffy1',
+        'MeanPAR': 'mpar_apercdiffy1',
+        'Fields/Ha': 'fields_ha_apercdiffy1',
         }
 )
 
@@ -76,12 +70,10 @@ pm.plot_correlation_matrices(correlation_wtoutlier, correlation_df,
 # analysis without grid
 ############################################
 # %% load data without grid
-from src.analysis.raw import gld_desc_raw as gdr
+from src.analysis.desc import gld_desc_raw as gdr
+gy, gydesc = gdr.gld_overyears() 
 
-# Define the exclude condition
-exclude_condition = lambda gld: gld['area_m2'] < 100
-
-_, gydesc = gdr.gld_overyears(exclude_condition) # or
+# or apply group filter before creating gydesc
 #xgroup =['unbef.mieten.auf al', 'pilze unter glas']
 #_, gydesc_filt = gdr.gld_overyears_filt('par', xgroup)
 
@@ -105,10 +97,11 @@ new_column_names = ['Δ_mfs', 'Δ_f/ha', 'Δ_MeanPAR', 'Δ_mperi']
 # single correlation matrix
 pm.plot_correlation_matrix(gydesc, 'Correlation Matrix of Field Metrics', target_columns, new_column_names)
 
+
 # %% 
-########################################################################################################
+#########################################
 # working with subsamples of data
-########################################################################################################
+#########################################
 # Call the subsampling data function and load data
 from src.analysis import subsampling_mod as ss
 
@@ -194,7 +187,6 @@ fig.update_layout(
 
 fig.show()
 
-
 #%% b. yearly change in land area 
 #  for entire dataset
 plt.figure(figsize=(8, 5))
@@ -240,77 +232,5 @@ fig.update_layout(
 # save plot as html
 fig.write_html('reports/figures/ToF/totarepch_cat12.html')
 
-fig.show()
-
-###################################################
-# exclude some groups from the data and run plots for entire data again
-######################################################
-# %% Define groups to exclude
-excgroups = ['dauerkulturen', 'others'] #'ffc', 'environmental', 'dauergrünland'
-
-# Call the function
-_, gydesc_exc = gdr.gld_overyears_filt('category3', excgroups)
-# %%
-# total area
-plt.figure(figsize=(8, 6))
-
-plt.plot(gydesc_exc['year'], gydesc_exc['area_sum'], marker='o', color = 'purple')
-plt.xlabel('Year')
-plt.ylabel('Area Sum (ha)')
-plt.title('Total Agricultural Area (ha) in Data Over Time')
-plt.grid(True)
-plt.tight_layout()
-plt.show()
-
-#  total area change
-plt.figure(figsize=(8, 5))
-
-plt.plot(gydesc_exc['year'], gydesc_exc['area_sum_percdiff_to_y1'], marker='o', color = 'purple') # or area_sum_diff_from_y1
-
-plt.xlabel('Year')
-plt.ylabel('Perc Change from 2012 in Area Sum (ha)') #retitle as needed
-plt.title('Perc Change from 2012 in Total Area Over Time')
-plt.grid(True)
-plt.tight_layout()
-# save plot as png
-plt.savefig('reports/figures/ToF/totarech12_perc.png')
-
-plt.show()
-
-
-
-
-
-
-
-
-
-
-
-# %% idenitfy the top 5 groups with the highest average area sum
-# from combined df, extract gruppe, year and area_sum columns into another df
-areasum_df = ss_combined[['Gruppe', 'year', 'area_sum']]
-# Pivot the DataFrame to get years as columns and area_sum as values
-areasum = areasum_df.pivot(index='Gruppe', columns='year', values='area_sum')
-# Calculate the average of each Gruppe across the years
-areasum['average'] = areasum.mean(axis=1)
-areasum.reset_index(inplace=True)
-
-# from area_sum, extract value of Gruppe column for top 5 rows of average
-areasum.sort_values('average', ascending=False, inplace=True)
-top5_gruppe = areasum['Gruppe'].head().unique()
-print(top5_gruppe)
-
-# %% bar plot to show yearly area sum for each gruppe
-# Melt the DataFrame to long format for plotting
-melted_df = areasum.melt(id_vars='Gruppe', var_name='year', value_name='area_sum')
-# Filter out the 'average' rows
-filtered_df = melted_df[melted_df['year'] != 'average']
-
-# Create the bar plot
-fig = px.bar(filtered_df, x='Gruppe', y='area_sum', color='year', barmode='group',
-             title='Yearly Area Sum for Each Gruppe')
-
-# Show the plot
 fig.show()
 
