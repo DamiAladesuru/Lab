@@ -11,37 +11,14 @@ import mapclassify as mc
 import plotly.express as px
 import seaborn as sns
 
+'''
+for choropleth mapping, ensure that:
+- the GeoDataFrame is epsg:4326
+e.g., simply point geoData = gdf.to_crs(epsg=4326)
+25832 is the default crs for the data
 
-#landkreise = gpd.read_file(os.path.join("N:/ds/data/Niedersachsen/verwaltungseinheiten/NDS_Landkreise.shp"))
-
-# %%
-geoData = gridgdf_raw.to_crs(epsg=4326) #options: 3035, 4326 or prog: 25832
-
-# %%
-geoData.plot()
-#landkreise.plot()
-print(landkreise.crs, geoData.crs)
-
-# %% subset data
-g_23 = geoData[geoData['year'] == 2015]
-
-
-# %% base plot no data
-fig, ax = plt.subplots(figsize=(12, 8))
-geoData.boundary.plot(ax=ax)
-plt.show()
-
-#or
-
-# %%
-geoplot.polyplot(
-    geoData,
-    projection=gcrs.AlbersEqualArea(),
-    edgecolor='darkgrey',
-    facecolor='lightgrey',
-    linewidth=.3,
-    figsize=(12, 8)
-)
+This module contains other choropleth functios to be further explored
+'''
 
 # %% single chloropleth map: sequential
 fig, ax = plt.subplots(figsize=(12, 8))
@@ -67,54 +44,6 @@ gplt.choropleth(
 )
 plt.show()
 
-# %% facet grid of chloropleth maps: sequential
-def plot_facet_choropleth_with_geoplot(gdf, column, cmap='viridis', year_col='year', ncols=4, title=""):
-    # Get unique years
-    unique_years = sorted(gdf[year_col].unique())
-    nrows = (len(unique_years) + ncols - 1) // ncols  # Calculate rows based on ncols
-
-    # Create the figure and axes
-    fig, axes = plt.subplots(
-        nrows=nrows, ncols=ncols, figsize=(5 * ncols, 5 * nrows), 
-        subplot_kw={'projection': gplt.crs.AlbersEqualArea()}  # Use an appropriate CRS
-    )
-    axes = axes.flatten()  # Flatten axes for easy iteration
-
-    # Plot each year's choropleth map
-    for i, year in enumerate(unique_years):
-        ax = axes[i]
-        
-        # Subset GeoDataFrame for the current year
-        gdf_year = gdf[gdf[year_col] == year]
-        
-        # Plot the choropleth map
-        gplt.choropleth(
-            gdf_year,
-            hue=column,
-            cmap=cmap,
-            edgecolor='black',
-            linewidth=0.5,
-            ax=ax,
-            legend=True,
-        )
-        # Add title
-        ax.set_title(f"Year: {year}", fontsize=12)
-    
-    # Turn off unused subplots
-    for j in range(i + 1, len(axes)):
-        fig.delaxes(axes[j])
-
-    # Add overall title
-    if title:
-        fig.suptitle(title, fontsize=18, y=1.02)
-
-    plt.tight_layout()
-    plt.subplots_adjust(top=0.9)
-    plt.show()
-
-# Example Usage
-# Assuming `geoData` is your GeoDataFrame with 'year' and 'medpar' columns
-#plot_facet_choropleth_with_geoplot(geoData, column='medpar', cmap='plasma', year_col='year', ncols=4)
 
 
 # %% individual yearly chloropleth maps
@@ -471,4 +400,5 @@ def plot_choropleth_by_year(gdf, hue_column='mfs_ha', cmap='Set1', ncols=4):
 # Example usage
 plot_choropleth_by_year(geoData, hue_column='mfs_ha', cmap='viridis', ncols=4)
 
-# %%
+# %% specify if main function
+_
