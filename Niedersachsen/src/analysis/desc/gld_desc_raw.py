@@ -150,13 +150,9 @@ def combine_diffgriddfs(cop, cop_y1):
 
 
 # %% process descriptives over time
-def gld_overyears(exclude_condition=None):
+def gld_overyears():
     gld = adjust_gld()
-    
-    # Apply the exclude condition if provided
-    if exclude_condition is not None:
-        gld = gld[~exclude_condition(gld)]
-    
+
     gydesc = compute_year_average(gld)
     gydesc['fields_ha'] = gydesc['fields_total'] / gydesc['area_sum']
     cop = calculate_yearlydiff(gydesc)
