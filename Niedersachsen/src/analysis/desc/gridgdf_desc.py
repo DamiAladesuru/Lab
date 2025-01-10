@@ -186,6 +186,34 @@ def to_gdf(griddf_ext):
     
     return gridgdf
 
+def process_griddf(gld_ext):
+    '''a function that combines all the functions above to create a gridgdf
+    in the next function, I have simply individually called each function
+    but this combined functionality is easier to call in other scripts
+    e.g., for creating landkreis or crop group subsamples
+    '''
+    griddf = create_griddf(gld_ext)
+    dupli = check_duplicates(griddf)
+    # calculate differences
+    griddf_ydiff = calculate_yearlydiff(griddf)
+    griddf_exty1 = calculate_diff_fromy1(griddf)
+    griddf_ext = combine_griddfs(griddf_ydiff, griddf_exty1)
+    
+    # Check for infinite values in all columns
+    for column in griddf_ext.columns:
+        infinite_values = griddf_ext[column].isin([np.inf, -np.inf])
+        print(f"Infinite values present in {column}:", infinite_values.any())
+
+        # Optionally, print the rows with infinite values
+        if infinite_values.any():
+            print(f"Rows with infinite values in {column}:")
+            print(griddf_ext[infinite_values])
+
+        # Handle infinite values by replacing them with NaN
+        griddf_ext[column].replace([np.inf, -np.inf], np.nan, inplace=True)
+    gridgdf = to_gdf(griddf_ext)
+
+    return gridgdf
 
 def create_gridgdf():
     output_dir = 'data/interim/gridgdf'
@@ -228,7 +256,7 @@ def create_gridgdf():
     return gld_ext, gridgdf
 
 # %% drop gridgdf outliers i.e., grids which have  fields < 300
-# but only if all fields < 300 for all years in which the grid in the dataset
+# but only if all fields < 300 for all years in which the grid is in the dataset
 def clean_gridgdf(gridgdf):
     # Remove grids with fields < 300
     gridgdf_clean = gridgdf[~(gridgdf['fields'] < 300)]

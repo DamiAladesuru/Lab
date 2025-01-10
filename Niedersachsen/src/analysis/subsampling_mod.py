@@ -40,22 +40,13 @@ def create_gridgdf_ss(gld, column_x):
     for value in unique_values:
         # Filter gld for the current unique value
         gld_ext = gld[gld[column_x] == value]
-        
-        griddf = gd.create_griddf(gld_ext)
-        dupli = gd.check_duplicates(griddf)
-        
-        # calculate differences
-        griddf_ydiff = gd.calculate_yearlydiff(griddf)
-        griddf_exty1 = gd.calculate_diff_fromy1(griddf)
-        griddf_ext = gd.combine_griddfs(griddf_ydiff, griddf_exty1)
-                
+        # Create gridgdf for the subsample
+        gridgdf = gd.process_griddf(gld_ext)    
         # Add a column indicating the subsample value
-        griddf_ext['group'] = value
-        
-        gridgdf_raw = gd.to_gdf(griddf_ext)
+        gridgdf[column_x] = value
 
-        # Store the gridgdf_raw in the dictionary
-        gridgdf_dict[value] = gridgdf_raw
+        # Store the gridgdf in the dictionary
+        gridgdf_dict[value] = gridgdf
 
     # Combine all the DataFrames in the dictionary into one DataFrame
     combined_gridgdf_ss = pd.concat(gridgdf_dict.values(), ignore_index=True)
