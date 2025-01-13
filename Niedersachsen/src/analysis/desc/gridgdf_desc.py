@@ -349,6 +349,7 @@ def desc_grid(gridgdf):
             mfs_ha_apercdiffy1=('mfs_ha_percdiff_to_y1', 'mean'),
 
             med_fsha_mean=('medfs_ha', 'mean'),
+            med_fsha_med=('medfs_ha', 'median'),
             med_fsha_std=('medfs_ha', 'std'),
             med_fsha_av_yearlydiff=('medfs_ha_yearly_diff', 'mean'),
             med_fsha_adiffy1=('medfs_ha_diff_from_y1', 'mean'),
@@ -364,6 +365,11 @@ def desc_grid(gridgdf):
             mperi_av_yearlydiff=('mperi_yearly_diff', 'mean'),
             mperi_adiffy1=('mperi_diff_from_y1', 'mean'),
             mperi_apercdiffy1=('mperi_percdiff_to_y1', 'mean'),
+            
+            medperi_med=('medperi', 'median'),
+            medperi_yearlydiff_med=('medperi_yearly_diff', 'median'),
+            medperi_diffy1_med=('medperi_diff_from_y1', 'median'),
+            medperi_percdiffy1_med=('medperi_percdiff_to_y1', 'median'),
 
             mpar_mean=('mpar', 'mean'),
             mpar_std=('mpar', 'std'),
@@ -383,10 +389,13 @@ def desc_grid(gridgdf):
             medpar_percdiffy1_med=('medpar_percdiff_to_y1', 'median'),
             
             fields_ha_mean=('fields_ha', 'mean'),
+            fields_ha_med=('fields_ha', 'median'),
             fields_ha_std=('fields_ha', 'std'),
             fields_ha_av_yearlydiff=('fields_ha_yearly_diff', 'mean'),
             fields_ha_adiffy1=('fields_ha_diff_from_y1', 'mean'),
-            fields_ha_apercdiffy1=('fields_ha_percdiff_to_y1', 'mean')
+            fields_ha_diffy1_med=('fields_ha_diff_from_y1', 'median'),
+            fields_ha_apercdiffy1=('fields_ha_percdiff_to_y1', 'mean'),
+            fields_ha_percdiffy1_med=('fields_ha_percdiff_to_y1', 'median')
 
         ).reset_index()
             
