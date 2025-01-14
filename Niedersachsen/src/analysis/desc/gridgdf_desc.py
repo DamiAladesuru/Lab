@@ -355,7 +355,6 @@ def desc_grid(gridgdf):
             med_fsha_adiffy1=('medfs_ha_diff_from_y1', 'mean'),
             med_fsha_apercdiffy1=('medfs_ha_percdiff_to_y1', 'mean'),
 
-            med_fsha_med=('medfs_ha', 'median'),
             med_fsha_yearlydiff_med=('medfs_ha_yearly_diff', 'median'),
             med_fsha_diffy1_med=('medfs_ha_diff_from_y1', 'median'),
             med_fsha_percdiffy1_med=('medfs_ha_percdiff_to_y1', 'median'),            
