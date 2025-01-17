@@ -12,13 +12,16 @@ from src.visualization import plotting_module as pm
 
 # %% load data
 gld, gridgdf = gd.silence_prints(gd.create_gridgdf)
+# I always want to load gridgdf and process clean gridgdf separately so I can have uncleeaned data for comparison or sensitivity analysis
 gridgdf_cl, _ = gd.clean_gridgdf(gridgdf)
-_, grid_yearly = gd.silence_prints(gd.desc_grid,gridgdf_cl)
+# %%
+_, grid_yearly_cl = gd.silence_prints(gd.desc_grid,gridgdf_cl)
+_, grid_yearly = gd.silence_prints(gd.desc_grid,gridgdf)
 
 # %% define objects for plotting
 multiline_df = grid_yearly
 #correlation_df = gridgdf_cl
-#correlation_wtoutlier = gridgdf
+#corration_wtoutlier = gridgdf
 
 # %%
 # Define the path for the color dictionary
@@ -86,7 +89,7 @@ pm.multimetric_plot(
         'mperi': 'peri_mean_percdiff_to_y1',
         'MFS': 'area_mean_percdiff_to_y1',
         'Fields/Ha': 'fields_ha_percdiff_to_y1',
-        'MeanPAR': 'meanPAR_percdiff_to_y1'
+        'MeanPAR': 'medianPAR_percdiff_to_y1'
         }
 )
 # %% correlation matrix
@@ -396,3 +399,66 @@ for year in geoData['year'].unique():
     g_year.plot()
     plt.title(f'Year {year}')
     plt.show()
+    
+ # %%   
+# Assuming `geoData` is your GeoDataFrame with 'year' and 'medpar' columns
+geoData = gridgdf_cl.to_crs(epsg=4326)
+pm.plot_facet_choropleth_with_geoplot(geoData,
+                                      column='medpar_percdiff_to_y1',
+                                      cmap='plasma', year_col='year', ncols=4)
+# %% very many lines
+# Set the plot style
+sns.set(style="whitegrid")
+
+# Create a figure and axis
+fig, ax = plt.subplots(figsize=(12, 6))
+
+# Plot the line plots on the same axis
+
+#sns.lineplot(data=grid_yearly, x='year', y='mperi_apercdiffy1', ax=ax, label='MPeri', marker='o')
+#sns.lineplot(data=grid_yearly_cl, x='year', y='mfs_ha_apercdiffy1', ax=ax, label='MFSc', marker='o')
+#sns.lineplot(data=grid_yearly, x='year', y='mfs_ha_apercdiffy1', ax=ax, label='MFS', marker='o')
+#sns.lineplot(data=gydesc, x='year', y='area_mean_percdiff_to_y1', ax=ax, label='MFSgy', marker='o')
+sns.lineplot(data=gydesc, x='year', y='medianPAR_percdiff_to_y1', ax=ax, label='Medpargy', marker='o')
+sns.lineplot(data=grid_yearly_cl, x='year', y='medpar_percdiffy1_med', ax=ax, label='Medparc', marker='o')
+#sns.lineplot(data=grid_yearly, x='year', y='med_fsha_percdiffy1_med', ax=ax, label='MedFS', marker='o')
+sns.lineplot(data=grid_yearly_cl, x='year', y='medpar_apercdiffy1', ax=ax, label='Medparac', marker='o')
+#sns.lineplot(data=grid_yearly, x='year', y='med_fsha_apercdiffy1', ax=ax, label='MedFSa', marker='o')
+#sns.lineplot(data=grid_yearly, x='year', y='fields_ha_apercdiffy1', ax=ax, label='Fields/Ha', marker='o')
+#sns.lineplot(data=grid_yearly_cl, x='year', y='mpar_apercdiffy1', ax=ax, label='MPAR', marker='o')
+#sns.lineplot(data=grid_yearly, x='year', y='medpar_percdiffy1_med', ax=ax, label='MedPAR', marker='o')
+#sns.lineplot(data=grid_yearly, x='year', y='medpar_apercdiffy1', ax=ax, label='MedPARa', marker='o')
+
+# Set the labels and title
+plt.xlabel('Year')
+plt.ylabel('Relative Diff to Year 1 (%)')
+plt.title('Trend of FiSC Over Time')
+
+# Set the legend
+plt.legend(title='FiSC', bbox_to_anchor=(1.05, 1), loc='upper left')
+
+# Show the plot
+plt.show()
+
+# %% density plot with mean median markers# %%
+data = gridgdf_cl[gridgdf_cl['year'] == 2018]
+# Calculate mean and median
+mean = np.mean(data['medfs_ha'])
+median = np.median(data['medfs_ha'])
+
+# Plot density plot
+plt.figure(figsize=(8, 6))
+sns.kdeplot(data, x = 'medfs_ha', fill=True, color='skyblue', alpha=0.5, label='Density')
+
+# Add vertical lines for mean and median
+plt.axvline(mean, color='red', linestyle='--', label=f'Mean: {mean:.2f}')
+plt.axvline(median, color='green', linestyle='-', label=f'Median: {median:.2f}')
+
+# Add legend and labels
+plt.title('2018 Density Plot for medfs_ha with Mean and Median')
+plt.xlabel('Values')
+plt.ylabel('Density')
+plt.legend()
+
+# Show the plot
+plt.show()
