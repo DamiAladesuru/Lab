@@ -75,7 +75,7 @@ for year in unique_years:
 # facet grid of chloropleth maps: interval
 ##################################################
 # %%
-def plot_choropleth_by_year(gdf, hue_column='mfs_ha', n_quantiles=6, cmap='inferno_r', ncols=4):
+def plot_choropleth_by_year(gdf, hue_column='mfs_ha', col_name ='', n_quantiles=6, cmap='inferno_r', ncols=4):
     """
     Plots a facet grid of choropleth maps for each unique year with quantiles.
 
@@ -95,7 +95,7 @@ def plot_choropleth_by_year(gdf, hue_column='mfs_ha', n_quantiles=6, cmap='infer
 
     # Create a figure and axes for the facet grid
     nrows = (len(unique_years) + ncols - 1) // ncols  # Calculate the number of rows needed
-    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(30, 5 * nrows), subplot_kw={'projection': gcrs.AlbersEqualArea()})
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(20, 5 * nrows), subplot_kw={'projection': gcrs.AlbersEqualArea()})
 
     # Flatten the axes array for easy iteration
     axes = axes.flatten()
@@ -130,6 +130,9 @@ def plot_choropleth_by_year(gdf, hue_column='mfs_ha', n_quantiles=6, cmap='infer
     for j in range(i + 1, len(axes)):
         fig.delaxes(axes[j])
 
+    # add plot title
+    fig.suptitle(f'{col_name}', fontsize=20, y=1.02)
+
     # Adjust layout
     plt.tight_layout()
 
@@ -137,7 +140,7 @@ def plot_choropleth_by_year(gdf, hue_column='mfs_ha', n_quantiles=6, cmap='infer
     plt.show()
 
 # %% Example usage:
-plot_choropleth_by_year(geoData, hue_column='mean_par_diff_from_y1', n_quantiles=4, cmap='viridis', ncols=4)
+plot_choropleth_by_year(geoData, hue_column='fields_ha', col_name = 'Fields/ha 2012 - 2023', n_quantiles=3, cmap='viridis', ncols=4)
 
 # %% interactive plotly chloropleth. uses epsg:4326
 # Create the choropleth map
