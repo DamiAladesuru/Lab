@@ -4,21 +4,18 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+matplotlib = "*"
 pandas = "*"
 shapely = "*"
 seaborn = "*"
-matplotlib = "*"
 geopandas = "*"
 ipykernel = "*"
 joblib = "*"
-scikit-image = "*"
-opencv-python = "*"
 geopy = "*"
 folium = "*"
 plotly = "*"
 nbformat = "*"
 openpyxl = "*"
-scikit-learn = "*"
 joypy = "*"
 geoplot = "*"
 
