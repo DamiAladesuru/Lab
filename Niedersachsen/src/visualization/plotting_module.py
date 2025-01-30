@@ -3,7 +3,6 @@ import os
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
-import pickle
 import matplotlib.pyplot as plt
 from joypy import joyplot
 import seaborn as sns
@@ -11,47 +10,42 @@ import geoplot as gplt
 import matplotlib.pyplot as plt
 
 # %%
-# Global dictionary to store colors for each label after first plot
-label_color_dict = {}
-
 '''Plotting functions'''
 
 #############################################
 # multiline plots for all data and color initialization
 #############################################
-def initialize_plotting(df, title, ylabel, metrics, color_dict_path):
-    global label_color_dict
+def multiline_metrics(df, title, ylabel, metrics, save_path, color_mapping=None, format='png', dpi=300):
+    """
+    Function to plot multiple metrics over time with predefined colors and save the plot.
 
-    if os.path.exists(color_dict_path):
-        with open(color_dict_path, 'rb') as f:
-            label_color_dict = pickle.load(f)
-    else:
-        label_color_dict = {}
-
-    multimetric_plot(df, title, ylabel, metrics)
-    
-    with open(color_dict_path, 'wb') as f:
-        pickle.dump(label_color_dict, f)
-
-
-def multimetric_plot(df, title, ylabel, metrics):
-    global label_color_dict
+    Args:
+        df (DataFrame): Dataframe containing the data to plot.
+        title (str): Title of the plot.
+        ylabel (str): Label for the Y-axis.
+        metrics (dict): Dictionary mapping labels to column names.
+        save_path (str): File path to save the plot.
+        color_mapping (dict): Optional dictionary specifying colors for each metric label.
+        format (str): Format to save the plot (e.g., 'png', 'pdf', 'svg').
+        dpi (int): Resolution of the plot in dots per inch.
+    """
     sns.set(style="whitegrid")
-    fig, ax = plt.subplots(figsize=(12, 6))
-    
-    for label, column in metrics.items():
-        if label in label_color_dict:
-            color = label_color_dict[label]
-            sns.lineplot(data=df, x='year', y=column, label=label, marker='o', color=color, ax=ax)
-        else:
-            line = sns.lineplot(data=df, x='year', y=column, label=label, marker='o', ax=ax)
-            color = line.get_lines()[-1].get_color()
-            label_color_dict[label] = color
+    fig, ax = plt.subplots(figsize=(12, 6), dpi=dpi)
 
-    plt.title(title)
-    plt.xlabel('Year')
-    plt.ylabel(ylabel)
+    # Use provided color mapping or default to seaborn's color cycle
+    for label, column in metrics.items():
+        color = color_mapping.get(label, None) if color_mapping else None
+        sns.lineplot(data=df, x='year', y=column, label=label, marker='o', color=color, ax=ax)
+
+    plt.title(title, fontsize=14, pad=12)
+    plt.xlabel('Year', labelpad=12, fontsize=12)
+    plt.ylabel(ylabel, fontsize=12)
     plt.legend(title='Metrics')
+
+    # Save the plot
+    plt.savefig(save_path, format=format, dpi=dpi)
+    print(f"Plot saved to {save_path}")
+
     plt.show()
 # %%
 #############################################
