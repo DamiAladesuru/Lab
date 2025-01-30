@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import mapclassify
 from matplotlib import font_manager
-print(font_manager.findSystemFonts(fontpaths=None, fontext='ttf'))
+#print(font_manager.findSystemFonts(fontpaths=None, fontext='ttf'))
 
 
 # %% read data
@@ -249,12 +249,13 @@ def plot_choropleths_maps(gdf, year_list, columns, col_titles, bins_labels_dict,
             legend_kwds={
                 "loc": "lower left",
                 "fontsize": "x-small",
-                "title": column,
+                "title": None,
                 "title_fontsize": "x-small",
                 "frameon": False,
                 "labelspacing": 0.2,
                 "alignment": "center",
                 "borderpad": 0.5,
+                "bbox_to_anchor": (0, -0.1),
             },
             edgecolor="white",
             linewidth=0.1,
@@ -326,8 +327,8 @@ def plot_choropleths_maps(gdf, year_list, columns, col_titles, bins_labels_dict,
     fig.suptitle(suptitle, fontsize=16, y=0.925) # reduce y to move title nearer to plots
     
     #save plot as svg
-    plt.savefig("reports/figures/results/FiSC_choropleth_map_.svg", format="svg", bbox_inches='tight')
-    plt.savefig("reports/figures/results/FiSC_choropleth_mapPN_.png", format="png", bbox_inches='tight')
+    plt.savefig("reports/figures/results/FiSC_choropleth_mapBerlin_.svg", format="svg", bbox_inches='tight')
+    plt.savefig("reports/figures/results/FiSC_choropleth_mapBerlinPN_.png", format="png", bbox_inches='tight')
     
     plt.show()
 # %%
@@ -335,7 +336,7 @@ def plot_choropleths_maps(gdf, year_list, columns, col_titles, bins_labels_dict,
 columns = ["medfs_ha", "medperi", "fields_ha", "medpar", 
            "medfs_ha_percdiff_to_y1", "medperi_percdiff_to_y1", "fields_ha_percdiff_to_y1", "medpar_percdiff_to_y1"]
 year_list = [2015, 2019, 2023]
-col_titles = ["Median Field Size (ha)", "Median Perimeter (m)", "Number of Fields", "Median Shape Index"]
+col_titles = ["Median Field Size (ha)", "Median Perimeter (m)", "Number of Fields", "Median Shape Complexity"]
 
 binsA = [-60, -6, -4, -2, -1, 0, 1, 2, 4, 6, 60]
 labelsA = ["<-6%", "-5%", "-3%", "-1.5%", "-0.5%", "0.5%", "1.5%", "3%", "5%", ">6%"]
@@ -363,7 +364,7 @@ bins_labels_dict = {
     "medpar_percdiff_to_y1": (binsA, labelsA)
 }
 # %%
-plot_choropleths_maps(geoData, year_list, columns, col_titles, bins_labels_dict, basecmap="magma", diffcmap="coolwarm", suptitle="Field Structural Change Over Time")
+plot_choropleths_maps(geoData, year_list, columns, col_titles, bins_labels_dict, basecmap="berlin", diffcmap="coolwarm", suptitle="Field Structural Change Over Time")
 
 
 # %%
