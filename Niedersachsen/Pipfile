@@ -18,6 +18,7 @@ nbformat = "*"
 openpyxl = "*"
 joypy = "*"
 geoplot = "*"
+lxml = "*"
 
 [dev-packages]
 
