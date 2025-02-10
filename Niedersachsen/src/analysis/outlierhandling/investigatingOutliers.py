@@ -138,7 +138,7 @@ pm.stack_plots_in_grid(gld_, unique_years, scatterplot_par_area, "area_ha_log", 
 # %% scatter gridgdf
 #d = gridgdfnoout_[~(gridgdfnoout_['fields_zscore'] < -1.55)]
 unique_years = sorted(gridgdf['year'].unique())
-pm.stack_plots_in_grid(gridgdf_, unique_years, pm.scatterplot_mpar_marea, "fields", "medpar", ncols=4, figsize=(25, 15))
+pm.stack_plots_in_grid(gridgdf_cl, unique_years, pm.scatterplot_mpar_marea, "mfs_ha", "medpar", ncols=4, figsize=(25, 15))
 
 
 ###########################
@@ -153,9 +153,11 @@ def box_plot(df, column):
 box_plot(gld, 'area_ha')
 
 # %% boxplot for every year
-data = gridgdf
+data = gridgdf_cl
 plt.figure(figsize=(12, 6))
-ax = sns.boxplot(data=data, x='year', y='medpar')
+ax = sns.boxplot(data=data, x='year', y='medfs_ha')
+#save plot as svg
+plt.savefig(f'reports/figures/distplots/cl_boxplot_medfs_ha.svg')
 
 # %%
 # Extract upper whiskers (upper limit) for each year
@@ -196,11 +198,18 @@ def kde_by_year(df, value_column):
     g.set_axis_labels(value_column, 'Density')
     g.set_titles("Year: {col_name}")
     
+    # add a super title
+    plt.subplots_adjust(top=0.9)
+    g.fig.suptitle(f'KDE Plot of {value_column} by Year')
+    
+    #save plot as svg
+    plt.savefig(f'reports/figures/kdes/kde_{value_column}_gridgdf.svg')
+    
     # Show the plot
-    plt.show()
+    #plt.show()
 
 # %%
-kde_by_year(gridgdfnoout_, 'fields_zscore')
+kde_by_year(gridgdf, 'fields_ha')
 
 # %% KDE plot for a specific year
 def kde_for_year(df, value_column, year):

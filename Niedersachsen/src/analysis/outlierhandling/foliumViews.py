@@ -159,9 +159,7 @@ def plot_gridgdf_on_map(gdf, value_column='', title='', zoom_start=10):
 
 
 # %%
-grid = plot_gridgdf_on_map(bufferedout, value_column='mfs_ha', title='MFS')
-# Save the map to an HTML file
-grid.save('grid.html')
+grid = plot_gridgdf_on_map(gridgdf, value_column='fields', title='Fields')
 grid
 
 # %%
