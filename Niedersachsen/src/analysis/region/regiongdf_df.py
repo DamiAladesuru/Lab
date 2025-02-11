@@ -2,10 +2,9 @@
 import os
 import pandas as pd
 import geopandas as gpd
-import pickle
+
 os.chdir("C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen")
 
-from src.analysis import gridgdf_desc2 as gd
 
 # %%
 def aggreg8_grid2region(gridgdf):
