@@ -136,10 +136,6 @@ else:
 # drop rows for years 2010 and 2011 in df_farm
 df_farm = df_farm[df_farm["year"] > 2011]
 
-# drop unnecessary columns
-df_farm = df_farm.drop(columns=['LK', 'klasse', 'year_yearly_diff', 'year_yearly_percdiff'])
-
-
 #%%
 # merge df_farm and df_field using the LANDKREIS and year columns, inner join
 farm_field = df_farm.merge(df_field, on=["LANDKREIS", "year"])
