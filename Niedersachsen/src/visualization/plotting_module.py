@@ -3,18 +3,17 @@ import os
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
-import matplotlib.pyplot as plt
 from joypy import joyplot
-import seaborn as sns
 import geoplot as gplt
-import matplotlib.pyplot as plt
+import pickle
+
 
 # %%
 '''Plotting functions'''
 
-#############################################
-# multiline plots for all data and color initialization
-#############################################
+##############################
+# multiline plots for all data
+##############################
 def multiline_metrics(df, title, ylabel, metrics, save_path, color_mapping=None, format='png', dpi=300):
     """
     Function to plot multiple metrics over time with predefined colors and save the plot.
@@ -99,24 +98,34 @@ def plot_correlation_matrices(df1, df2, title1, title2):
     plt.tight_layout()
     plt.show()
 
-############################################################
-# multimetric extended for facet plot for subsamples of data
-############################################################
-def multimetric_ss_plot(dict, title, ylabel, metrics):
-    global label_color_dict  # Access the global color dictionary
+####################################################################
+# multimetric extended for facet plot for grouped subsamples of data
+# created directly from gld.
+####################################################################
+def multimetric_ss_plot(data_dict, title, ylabel, metrics):
+    # Load the label_color_dict from a pickle file
+    label_color_dict_path = 'reports/figures/ToF/label_color_dict.pkl'
+    
+    # Check if the file exists to prevent errors
+    if os.path.exists(label_color_dict_path):
+        with open(label_color_dict_path, 'rb') as f:
+            label_color_dict = pickle.load(f)  # Load color dictionary
+    else:
+        print(f"Warning: {label_color_dict_path} not found. Using an empty dictionary.")
+        label_color_dict = {}  # Fallback to empty dict if file is missing
     
     # Set the plot style
     sns.set(style="whitegrid")
     
     # Determine the number of subplots based on the number of Gruppe values
-    n_subplots = len(dict)
+    n_subplots = len(data_dict)
     n_cols = min(3, n_subplots)  # Maximum 3 columns
     n_rows = (n_subplots - 1) // n_cols + 1
     
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(6*n_cols, 4*n_rows), squeeze=False)
     fig.suptitle(title, fontsize=16)
     
-    for idx, (gruppe, df) in enumerate(dict.items()):
+    for idx, (gruppe, df) in enumerate(data_dict.items()):
         row = idx // n_cols
         col = idx % n_cols
         ax = axes[row, col]
@@ -129,7 +138,7 @@ def multimetric_ss_plot(dict, title, ylabel, metrics):
             else:
                 line = sns.lineplot(data=df, x='year', y=column, label=label, marker='o', ax=ax)
                 color = line.get_lines()[-1].get_color()
-                label_color_dict[label] = color
+                label_color_dict[label] = color  # Update the dictionary with the new color
         
         ax.set_title(f'Gruppe: {gruppe}')
         ax.set_xlabel('Year')
@@ -143,6 +152,85 @@ def multimetric_ss_plot(dict, title, ylabel, metrics):
         fig.delaxes(axes[row, col])
     
     plt.tight_layout()
+    plt.show()
+
+    # Save the updated color dictionary back to the file
+    with open(label_color_dict_path, 'wb') as f:
+        pickle.dump(label_color_dict, f)
+
+
+####################################################################
+# multimetric grid plot for categories of data e.g., created from
+# gridgdf. (crop category plot with shared legend)
+####################################################################
+def plot_metrics_for_group(ax, df_group, metrics, color_mapping, ylabel):
+    """
+    Helper function to plot metrics for a specific group on a given axis without a legend.
+    """
+    for label, column in metrics.items():
+        color = color_mapping.get(label, None) if color_mapping else None
+        sns.lineplot(data=df_group, x='year', y=column, label=label, marker='o', color=color, ax=ax)
+    ax.set_title(f"Category: {df_group['subsample'].iloc[0]}", fontsize=12)
+    ax.set_xlabel("Year", fontsize=10)
+    ax.set_ylabel(ylabel, fontsize=10)
+    # Remove the legend from individual subplots
+    ax.legend_.remove()
+
+def multiline_metrics_with_shared_legend(df, title, ylabel, metrics, save_path, color_mapping=None, format='png', dpi=300):
+    """
+    Function to create a grid of plots for each subsample group with a shared legend positioned under the general title.
+    """
+    sns.set(style="whitegrid")
+    
+    # Get unique subsample groups
+    subsample_groups = df['subsample'].unique()
+    n_groups = len(subsample_groups)
+    
+    # Set up a grid of subplots (3 columns)
+    n_cols = 3
+    n_rows = (n_groups + n_cols - 1) // n_cols  # Calculate rows needed
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(25, 7 * n_rows), dpi=dpi)
+    
+    # Flatten axes array for easier indexing
+    axes = axes.flatten()
+    
+    # Loop through each group and create a plot
+    for i, subsample in enumerate(subsample_groups):
+        df_group = df[df['subsample'] == subsample]
+        plot_metrics_for_group(axes[i], df_group, metrics, color_mapping, ylabel)
+    
+    # Hide unused subplots if there are fewer groups than grid slots
+    for j in range(i + 1, len(axes)):  # Hide any extra subplots
+        axes[j].axis('off')
+    
+    # Create a shared legend and place it under the general title
+    handles = []
+    labels = []
+    
+    # Collect handles and labels from one of the groups
+    for label, column in metrics.items():
+        color = color_mapping.get(label, None) if color_mapping else None
+        handles.append(plt.Line2D([], [], color=color, marker='o', label=label))
+        labels.append(label)
+    
+    # Add shared legend to the figure (under general title)
+    fig.legend(
+        handles=handles,
+        labels=labels,
+        loc='upper center',  # Position at the top center of the figure
+        bbox_to_anchor=(0.5, 0.92),  # Fine-tune position (x=centered at 0.5; y just below title)
+        fontsize=10,
+        ncol=len(metrics)  # Arrange all legend items in one row
+    )
+    
+    # Add a global title and adjust layout
+    fig.suptitle(title, fontsize=16)
+    fig.tight_layout(rect=[0, 0.03, 1, 0.88])  # Adjust layout to leave space for the title and legend
+    
+    # Save the plot
+    plt.savefig(save_path, format=format, dpi=dpi)
+    print(f"Plot saved to {save_path}")
+    
     plt.show()
 
 
