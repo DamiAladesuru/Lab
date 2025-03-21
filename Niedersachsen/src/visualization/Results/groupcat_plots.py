@@ -2,11 +2,13 @@
 trends of metrics over time for each subsample.'''
 
 # %%
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from src.analysis.desc import gridgdf_desc as gd
 from src.analysis import subsampling_mod as ss
 from src.visualization import plotting_module as pm
+
 
 '''
 gd module contains functions for loading entire data and calculating metrics
@@ -37,7 +39,7 @@ metrics = {
 color_mapping = {
     #https://personal.sron.nl/~pault/
     'Median Field Size': '#004488',
-    'Median Perimeter': 'grey',
+    'Median Perimeter': '#EE7733',
     'Median PAR': '#228833',
     'Fields/TotalArea': '#CC3311',
 }
@@ -79,7 +81,7 @@ metrics = {
 
 color_mapping = {
     'Median Field Size': '#004488',
-    'Median Perimeter': 'grey',
+    'Median Perimeter': '#EE7733',
     'Median PAR': '#228833',
     'Fields/TotalArea': '#CC3311',
 }
@@ -89,7 +91,7 @@ pm.multiline_metrics_with_shared_legend(
     title="Trend of Change in Field Metric Values Over Time by Subsample",
     ylabel="Aggregate Change (%) in Field Metric Value from 2012",
     metrics=metrics,
-    save_path="reports/figures/ToF/allcategory_trends_shared_legend.svg",
+    save_path="reports/figures/ToF/allcat_trends_shared_legend.svg",
     color_mapping=color_mapping,
     format='svg'
 )
@@ -121,3 +123,5 @@ for subgroup_name, subgroup_dict in subgroups.items():
     pm.multimetric_ss_plot(subgroup_dict, title, ylabel, metrics)
 
 
+
+# %%
