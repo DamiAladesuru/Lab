@@ -16,9 +16,9 @@ from src.analysis import subsampling_mod as ss
 from src.visualization import plotting_module as pm
 
 # %%
-cropsubsample = 'environmental'
+cropsubsample = 'winterweichweizen'
 gld_ss, gridgdf = ss.griddf_speci_subsample(cropsubsample,
-                                            col1='category3', gld_data = gld)
+                                            col1='kulturart', gld_data = gld)
 
 _, grid_yearlym = gd.silence_prints(gd.desc_grid,gridgdf)
 
@@ -32,18 +32,18 @@ metrics = {
 color_mapping = {
     #https://personal.sron.nl/~pault/
     'Median Field Size': '#004488',
-    'Median Perimeter': 'grey',
+    'Median Perimeter': '#EE7733',
     'Median PAR': '#228833',
     'Fields/TotalArea': '#CC3311',
 }
 
 pm.multiline_metrics(
     df=grid_yearlym,
-    title="Trends in Field Metrics for Environmental Fields",
+    title="Trends in Field Metrics for Wheat (Winterweichweizen)",
     ylabel="Aggregate Change (%) in Field Metric Value from 2012",
     metrics=metrics,
     format='svg',
-    save_path="reports/figures/ToF/env_trends.svg",
+    save_path="reports/figures/ToF/winterweichweizen_trends.svg",
     color_mapping=color_mapping
 )
 # %%
