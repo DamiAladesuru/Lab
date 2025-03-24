@@ -23,7 +23,7 @@ The functions are called in the trend_of_fisc script
 
 # %%
 def square_cpar(gld): #shape index adjusted for square fields
-    gld['cpar2'] = ((0.25 * gld['peri_m']) / (gld['area_m2']**0.5))
+    gld['cpar'] = ((0.25 * gld['peri_m']) / (gld['area_m2']**0.5))
     return gld
 
 
@@ -42,7 +42,7 @@ def create_griddf(gld):
     """
     
     required_columns = ['CELLCODE', 'year', 'LANDKREIS', 'geometry',\
-        'Gruppe', 'area_m2', 'area_ha', 'peri_m', 'par']
+        'Gruppe', 'area_m2', 'area_ha', 'peri_m', 'par', 'cpar']
     missing = [col for col in required_columns if col not in gld.columns]
     if missing:
         raise ValueError(f"Input DataFrame is missing required columns: {missing}")
@@ -68,12 +68,15 @@ def create_griddf(gld):
         {'column': 'area_ha', 'aggfunc': 'sum', 'new_col': 'fsha_sum'},
         {'column': 'peri_m', 'aggfunc': 'sum', 'new_col': 'peri_sum'},
         {'column': 'par', 'aggfunc': 'sum', 'new_col': 'par_sum'},
+        {'column': 'cpar', 'aggfunc': 'sum', 'new_col': 'cpar_sum'},
         {'column': 'area_ha', 'aggfunc': 'mean', 'new_col': 'mfs_ha'},
         {'column': 'peri_m', 'aggfunc': 'mean', 'new_col': 'mperi'},
         {'column': 'par', 'aggfunc': 'mean', 'new_col': 'mpar'},
+        {'column': 'cpar', 'aggfunc': 'mean', 'new_col': 'mcpar'},
         {'column': 'area_ha', 'aggfunc': 'median', 'new_col': 'medfs_ha'},
         {'column': 'peri_m', 'aggfunc': 'median', 'new_col': 'medperi'},
         {'column': 'par', 'aggfunc': 'median', 'new_col': 'medpar'},
+        {'column': 'cpar', 'aggfunc': 'median', 'new_col': 'medcpar'},
     ]
 
     # Apply each aggregation
@@ -225,6 +228,7 @@ def create_gridgdf():
 
     # Load gld
     gld_ext = gdr.adjust_gld()
+    gld_ext = square_cpar(gld_ext)
 
     if os.path.exists(gridgdf_filename):
         gridgdf = pd.read_pickle(gridgdf_filename)
@@ -386,6 +390,23 @@ def desc_grid(gridgdf):
             medpar_yearlydiff_med=('medpar_yearly_diff', 'median'),
             medpar_diffy1_med=('medpar_diff_from_y1', 'median'),
             medpar_percdiffy1_med=('medpar_percdiff_to_y1', 'median'),
+            
+            mcpar_mean=('mcpar', 'mean'),
+            mcpar_std=('mcpar', 'std'),
+            mcpar_av_yearlydiff=('mcpar_yearly_diff', 'mean'),
+            mcpar_adiffy1=('mcpar_diff_from_y1', 'mean'),
+            mcpar_apercdiffy1=('mcpar_percdiff_to_y1', 'mean'),
+            
+            medcpar_mean=('medcpar', 'mean'),
+            medcpar_std=('medcpar', 'std'),
+            medcpar_av_yearlydiff=('medcpar_yearly_diff', 'mean'),
+            medcpar_adiffy1=('medcpar_diff_from_y1', 'mean'),
+            medcpar_apercdiffy1=('medcpar_percdiff_to_y1', 'mean'),
+
+            medcpar_med=('medcpar', 'median'),
+            medcpar_yearlydiff_med=('medcpar_yearly_diff', 'median'),
+            medcpar_diffy1_med=('medcpar_diff_from_y1', 'median'),
+            medcpar_percdiffy1_med=('medcpar_percdiff_to_y1', 'median'),
             
             fields_ha_mean=('fields_ha', 'mean'),
             fields_ha_med=('fields_ha', 'median'),
