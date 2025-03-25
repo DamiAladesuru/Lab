@@ -1,0 +1,96 @@
+Info for GeoDataFrame 'Fluren.shp':
+<class 'geopandas.geodataframe.GeoDataFrame'>
+RangeIndex: 42429 entries, 0 to 42428
+Data columns (total 10 columns):
+ #   Column      Non-Null Count  Dtype   
+---  ------      --------------  -----   
+ 0   GEMA        42429 non-null  object  
+ 1   FLUR        42429 non-null  object  
+ 2   GEMARKUNG   42429 non-null  object  
+ 3   GEM         42429 non-null  object  
+ 4   GEMEINDE    42429 non-null  object  
+ 5   KA_NR       42429 non-null  object  
+ 6   KATASTERAM  42429 non-null  object  
+ 7   LK          42429 non-null  object  
+ 8   LANDKREIS   42429 non-null  object  
+ 9   geometry    42429 non-null  geometry
+dtypes: geometry(1), object(9)
+memory usage: 3.2+ MB
+
+
+Info for GeoDataFrame 'Gemarkungen.shp':
+<class 'geopandas.geodataframe.GeoDataFrame'>
+RangeIndex: 4592 entries, 0 to 4591
+Data columns (total 9 columns):
+ #   Column      Non-Null Count  Dtype   
+---  ------      --------------  -----   
+ 0   GEMA        4592 non-null   object  
+ 1   GEMARKUNG   4592 non-null   object  
+ 2   GEM         4592 non-null   object  
+ 3   GEMEINDE    4592 non-null   object  
+ 4   KA_NR       4592 non-null   object  
+ 5   KATASTERAM  4592 non-null   object  
+ 6   LK          4592 non-null   object  
+ 7   LANDKREIS   4592 non-null   object  
+ 8   geometry    4592 non-null   geometry
+dtypes: geometry(1), object(8)
+memory usage: 323.0+ KB
+
+
+Info for GeoDataFrame 'Gemeinden.shp':
+<class 'geopandas.geodataframe.GeoDataFrame'>
+RangeIndex: 973 entries, 0 to 972
+Data columns (total 5 columns):
+ #   Column     Non-Null Count  Dtype   
+---  ------     --------------  -----   
+ 0   GEM        973 non-null    object  
+ 1   GEMEINDE   973 non-null    object  
+ 2   LK         973 non-null    object  
+ 3   LANDKREIS  973 non-null    object  
+ 4   geometry   973 non-null    geometry
+dtypes: geometry(1), object(4)
+memory usage: 38.1+ KB
+
+
+Info for GeoDataFrame 'Landesflaeche.shp':
+<class 'geopandas.geodataframe.GeoDataFrame'>
+RangeIndex: 1 entries, 0 to 0
+Data columns (total 2 columns):
+ #   Column    Non-Null Count  Dtype   
+---  ------    --------------  -----   
+ 0   LAND      1 non-null      object  
+ 1   geometry  1 non-null      geometry
+dtypes: geometry(1), object(1)
+memory usage: 148.0+ bytes
+
+
+Info for GeoDataFrame 'Landkreise.shp':
+<class 'geopandas.geodataframe.GeoDataFrame'>
+RangeIndex: 47 entries, 0 to 46
+Data columns (total 3 columns):
+ #   Column     Non-Null Count  Dtype   
+---  ------     --------------  -----   
+ 0   LK         47 non-null     object  
+ 1   LANDKREIS  47 non-null     object  
+ 2   geometry   47 non-null     geometry
+dtypes: geometry(1), object(2)
+memory usage: 1.2+ KB
+
+
+Info for GeoDataFrame 'Samtgemeinden.shp':
+<class 'geopandas.geodataframe.GeoDataFrame'>
+RangeIndex: 114 entries, 0 to 113
+Data columns (total 7 columns):
+ #   Column      Non-Null Count  Dtype   
+---  ------      --------------  -----   
+ 0   GEM         114 non-null    object  
+ 1   GEMEINDE    114 non-null    object  
+ 2   KA_NR       114 non-null    object  
+ 3   KATASTERAM  114 non-null    object  
+ 4   LK          114 non-null    object  
+ 5   LANDKREIS   114 non-null    object  
+ 6   geometry    114 non-null    geometry
+dtypes: geometry(1), object(6)
+memory usage: 6.4+ KB
+
+
