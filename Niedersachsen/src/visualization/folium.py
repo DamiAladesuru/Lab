@@ -5,13 +5,19 @@ import folium
 import folium.plugins
 from IPython.display import display
 
+path = "~/Documents/DataAnalysis/Lab/Niedersachsen"
+expanded_path = os.path.expanduser(path)
+os.chdir(expanded_path)
 
-# Set the current working directory
-os.chdir('C:/Users/aladesuru/Documents/DataAnalysis/Lab/Niedersachsen')
+print("Current directory:", os.getcwd())
 
-from src.analysis_and_models import describe_single
+from src.analysis.desc import gridgdf_desc as gd
+from src.visualization import plotting_module as pm
 
-gld, griddf, griddf_ext, mean_median, gridgdf = describe_single.process_descriptives()
+# %% load data
+gld, gridgdf = gd.silence_prints(gd.create_gridgdf)
+# I always want to load gridgdf and process clean gridgdf separately so I can have uncleeaned data for comparison or sensitivity analysis
+gridgdf_cl, _ = gd.clean_gridgdf(gridgdf)
 
 '''
 Parameters:
@@ -19,7 +25,7 @@ Parameters:
 '''
 
 # %% let index of the gridgdf_ be the id and convert ndarray column to list
-gridgdf_ = gridgdf.reset_index().rename(columns={'index': 'id'})
+gridgdf_ = gridgdf_cl.reset_index().rename(columns={'index': 'id'})
 
 #Check for ndarray types in gridgdf_ columns
 for col in gridgdf_.columns:
@@ -169,6 +175,5 @@ folium.plugins.Search(
 folium.LayerControl().add_to(m2)
 
 # Save the map to an HTML file
-m2.save('yearly_map_with_cellcode_mfs.html')
+m2.save('src/visualization/yearly_map_with_cellcode_mfs_cl.html')
 
-# %%
